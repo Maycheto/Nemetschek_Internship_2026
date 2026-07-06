@@ -12,4 +12,6 @@ public class Class
     public Teacher MainTeacher { get; set; } = null!;
 
     public List<Student> Students { get; set; } = new List<Student>();
+    
+    public List<ClassSubject> ClassSubjects { get; set; } = new List<ClassSubject>();
 }

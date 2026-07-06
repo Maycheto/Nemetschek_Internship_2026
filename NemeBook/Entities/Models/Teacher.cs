@@ -8,4 +8,6 @@ public class Teacher
     public User User { get; set; } = null!;
     
     public Class? MainClass { get; set; }
+
+    public List<ClassSubject> ClassSubjects { get; set; } = new List<ClassSubject>();
 }
