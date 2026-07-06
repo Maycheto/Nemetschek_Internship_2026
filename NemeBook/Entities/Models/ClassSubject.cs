@@ -2,6 +2,8 @@ namespace Entities.Models;
 
 public class ClassSubject
 {
+    public Guid Id { get; set; }
+
     public Guid ClassId { get; set; }
     public Class Class { get; set; } = null!;
 
@@ -10,4 +12,6 @@ public class ClassSubject
 
     public Guid TeacherId { get; set; }
     public Teacher Teacher { get; set; } = null!;
+
+    public List<Grade> Grades { get; set; } = new List<Grade>();
 }

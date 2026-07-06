@@ -13,4 +13,5 @@ public class Student
     public Class Class { get; set; } = null!;
 
     public List<Parent> Parents { get; set; } = new List<Parent>();
+    public List<Grade> Grades { get; set; } = new List<Grade>();
 }
