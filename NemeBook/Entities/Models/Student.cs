@@ -14,4 +14,5 @@ public class Student
 
     public List<Parent> Parents { get; set; } = new List<Parent>();
     public List<Grade> Grades { get; set; } = new List<Grade>();
+    public List<Absence> Absences { get; set; } = new List<Absence>();
 }

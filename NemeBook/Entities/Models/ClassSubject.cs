@@ -14,4 +14,5 @@ public class ClassSubject
     public Teacher Teacher { get; set; } = null!;
 
     public List<Grade> Grades { get; set; } = new List<Grade>();
+    public List<Absence> Absences { get; set; } = new List<Absence>();
 }
