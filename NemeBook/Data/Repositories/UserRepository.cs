@@ -1,8 +1,10 @@
-﻿using Entities.Models;
+﻿// Data/Repositories/UserRepository.cs
+using Data;
+using Entities.Models;
 using Microsoft.EntityFrameworkCore;
 using Services.Repositories;
 
-namespace Data.Repositories;
+namespace Data.UserRepository;
 
 public class UserRepository : IUserRepository
 {
@@ -17,6 +19,12 @@ public class UserRepository : IUserRepository
     {
         return dbContext.Users
             .FirstOrDefaultAsync(user => user.Id == id, cancellationToken);
+    }
+
+    public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
+    {
+        return dbContext.Users
+            .FirstOrDefaultAsync(user => user.Email == email, cancellationToken);
     }
 
     public async Task<IReadOnlyList<User>> GetAllAsync(CancellationToken cancellationToken = default)
