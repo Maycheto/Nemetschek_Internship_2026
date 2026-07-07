@@ -1,0 +1,26 @@
+using Services.Dtos.Registration;
+
+namespace Services.Interfaces.Registration;
+
+public interface IRegistrationService
+{
+    Task<RegistrationImportResult> ImportStudentsAsync(
+        IReadOnlyCollection<StudentImportDto> students,
+        CancellationToken cancellationToken = default);
+
+    Task<RegistrationImportResult> ImportTeachersAsync(
+        IReadOnlyCollection<TeacherImportDto> teachers,
+        CancellationToken cancellationToken = default);
+
+    Task CompleteSetPasswordAsync(
+        CompleteSetPasswordRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task CompleteParentSignUpAsync(
+        CompleteParentSignUpRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<PrincipalSeedResult> SeedPrincipalAsync(
+        SeedPrincipalRequest request,
+        CancellationToken cancellationToken = default);
+}

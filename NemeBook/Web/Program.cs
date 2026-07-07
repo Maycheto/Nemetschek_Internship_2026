@@ -1,9 +1,17 @@
-﻿using Data;
+using Data;
 using Data.Repositories;
 using Microsoft.EntityFrameworkCore;
-using Services.Interfaces;
+using Services.Interfaces.Chats;
+using Services.Interfaces.Registration;
+using Services.Interfaces.Security;
+using Services.Interfaces.Students;
 using Services.Repositories;
-using Services.Services;
+using Services.Services.Chats;
+using Services.Services.Registration;
+using Services.Services.Security;
+using Services.Services.Students;
+using Web.Options;
+using Web.Services.Email;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +30,7 @@ builder.Services.AddScoped<IGradeRepository, GradeRepository>();
 builder.Services.AddScoped<IMessageRepository, MessageRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IParentRepository, ParentRepository>();
+builder.Services.AddScoped<IRegistrationInvitationRepository, RegistrationInvitationRepository>();
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();
 builder.Services.AddScoped<ISubjectRepository, SubjectRepository>();
 builder.Services.AddScoped<ITeacherRepository, TeacherRepository>();
@@ -29,6 +38,13 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 
 builder.Services.AddScoped<IStudentService, StudentService>();
 builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IRegistrationService, RegistrationService>();
+builder.Services.AddScoped<IInvitationTokenService, InvitationTokenService>();
+builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
+builder.Services.AddScoped<IRegistrationEmailSender, SmtpRegistrationEmailSender>();
+
+builder.Services.Configure<RegistrationEmailOptions>(
+    builder.Configuration.GetSection("RegistrationEmail"));
 
 builder.Services.AddControllersWithViews();
 
