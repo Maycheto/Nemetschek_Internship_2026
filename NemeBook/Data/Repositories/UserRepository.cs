@@ -1,10 +1,8 @@
-﻿// Data/Repositories/UserRepository.cs
-using Data;
 using Entities.Models;
 using Microsoft.EntityFrameworkCore;
 using Services.Repositories;
 
-namespace Data.UserRepository;
+namespace Data.Repositories;
 
 public class UserRepository : IUserRepository
 {

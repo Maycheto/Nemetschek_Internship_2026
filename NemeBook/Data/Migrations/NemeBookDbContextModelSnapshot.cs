@@ -364,6 +364,52 @@ namespace Data.Migrations
                     b.ToTable("Parents");
                 });
 
+            modelBuilder.Entity("Entities.Models.RegistrationInvitation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UsedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("RegistrationInvitations");
+                });
+
             modelBuilder.Entity("Entities.Models.Student", b =>
                 {
                     b.Property<Guid>("Id")
@@ -487,6 +533,21 @@ namespace Data.Migrations
                     b.HasIndex("StudentsId");
 
                     b.ToTable("ParentStudents", (string)null);
+                });
+
+            modelBuilder.Entity("RegistrationInvitationStudents", b =>
+                {
+                    b.Property<Guid>("RegistrationInvitationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("RegistrationInvitationId", "StudentId");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("RegistrationInvitationStudents");
                 });
 
             modelBuilder.Entity("ChatUser", b =>
@@ -694,6 +755,16 @@ namespace Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Entities.Models.RegistrationInvitation", b =>
+                {
+                    b.HasOne("Entities.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Entities.Models.Student", b =>
                 {
                     b.HasOne("Entities.Models.Class", "Class")
@@ -736,6 +807,21 @@ namespace Data.Migrations
                         .WithMany()
                         .HasForeignKey("StudentsId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RegistrationInvitationStudents", b =>
+                {
+                    b.HasOne("Entities.Models.RegistrationInvitation", null)
+                        .WithMany()
+                        .HasForeignKey("RegistrationInvitationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Entities.Models.Student", null)
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

@@ -20,11 +20,12 @@ public class NemeBookDbContext : DbContext
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<Parent> Parents => Set<Parent>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<RegistrationInvitation> RegistrationInvitations => Set<RegistrationInvitation>();
     public DbSet<Student> Students => Set<Student>();
     public DbSet<Subject> Subjects => Set<Subject>();
     public DbSet<Teacher> Teachers => Set<Teacher>();
     public DbSet<User> Users => Set<User>();
-    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -40,22 +41,7 @@ public class NemeBookDbContext : DbContext
         ConfigureChats(modelBuilder);
         ConfigureNotifications(modelBuilder);
         ConfigurePasswordResetTokens(modelBuilder);
-    }
-
-    private static void ConfigurePasswordResetTokens(ModelBuilder modelBuilder)
-    {
-        modelBuilder.Entity<PasswordResetToken>(entity =>
-        {
-            entity.HasIndex(token => token.Token).IsUnique();
-            entity.HasIndex(token => token.UserId).IsUnique();
-            entity.Property(token => token.Token).HasMaxLength(256);
-
-            entity.HasOne(token => token.User)
-                .WithOne(user => user.PasswordResetToken)
-                .HasForeignKey<PasswordResetToken>(token => token.UserId)
-                .IsRequired()
-                .OnDelete(DeleteBehavior.Cascade);
-        });
+        ConfigureRegistrationInvitations(modelBuilder);
     }
 
     private static void ConfigureUsers(ModelBuilder modelBuilder)
@@ -288,6 +274,54 @@ public class NemeBookDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(notification => notification.FeedbackId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+    }
+
+    private static void ConfigurePasswordResetTokens(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<PasswordResetToken>(entity =>
+        {
+            entity.HasIndex(token => token.Token).IsUnique();
+            entity.HasIndex(token => token.UserId).IsUnique();
+            entity.Property(token => token.Token).HasMaxLength(256);
+
+            entity.HasOne(token => token.User)
+                .WithOne(user => user.PasswordResetToken)
+                .HasForeignKey<PasswordResetToken>(token => token.UserId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigureRegistrationInvitations(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<RegistrationInvitation>(entity =>
+        {
+            entity.HasIndex(invitation => invitation.TokenHash).IsUnique();
+            entity.HasIndex(invitation => invitation.Email);
+
+            entity.Property(invitation => invitation.Email).HasMaxLength(256);
+            entity.Property(invitation => invitation.TokenHash).HasMaxLength(512);
+
+            entity.HasOne(invitation => invitation.User)
+                .WithMany()
+                .HasForeignKey(invitation => invitation.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasMany(invitation => invitation.Students)
+                .WithMany()
+                .UsingEntity<Dictionary<string, object>>(
+                    "RegistrationInvitationStudents",
+                    right => right
+                        .HasOne<Student>()
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict),
+                    left => left
+                        .HasOne<RegistrationInvitation>()
+                        .WithMany()
+                        .HasForeignKey("RegistrationInvitationId")
+                        .OnDelete(DeleteBehavior.Cascade));
         });
     }
 }

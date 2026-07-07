@@ -1,12 +1,21 @@
-﻿// Program.cs
 using Data;
 using Data.Repositories;
-using Data.UserRepository;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
+using Services.Implementations;
 using Services.Interfaces;
+using Services.Interfaces.Chats;
+using Services.Interfaces.Registration;
+using Services.Interfaces.Security;
+using Services.Interfaces.Students;
 using Services.Repositories;
 using Services.Services;
+using Services.Services.Chats;
+using Services.Services.Registration;
+using Services.Services.Security;
+using Services.Services.Students;
+using Web.Options;
+using Web.Services.Email;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,7 +23,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<NemeBookDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Register Repositories
+// Register repositories.
 builder.Services.AddScoped<IAbsenceRepository, AbsenceRepository>();
 builder.Services.AddScoped<IAccountsRepository, AccountsRepository>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
@@ -26,17 +35,29 @@ builder.Services.AddScoped<IGradeRepository, GradeRepository>();
 builder.Services.AddScoped<IMessageRepository, MessageRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IParentRepository, ParentRepository>();
+builder.Services.AddScoped<IPasswordResetRepository, PasswordResetRepository>();
+builder.Services.AddScoped<IRegistrationInvitationRepository, RegistrationInvitationRepository>();
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();
 builder.Services.AddScoped<ISubjectRepository, SubjectRepository>();
 builder.Services.AddScoped<ITeacherRepository, TeacherRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 
-// Register Services
-builder.Services.AddScoped<IStudentService, StudentService>();
-builder.Services.AddScoped<IChatService, ChatService>();
+// Register services.
+builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IInvitationTokenService, InvitationTokenService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
+builder.Services.AddScoped<IRegistrationEmailSender, SmtpRegistrationEmailSender>();
+builder.Services.AddScoped<IRegistrationService, RegistrationService>();
+builder.Services.AddScoped<IStudentService, StudentService>();
 
-// Add Cookie Authentication
+builder.Services.Configure<RegistrationEmailOptions>(
+    builder.Configuration.GetSection("RegistrationEmail"));
+
+// Add Cookie Authentication.
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {

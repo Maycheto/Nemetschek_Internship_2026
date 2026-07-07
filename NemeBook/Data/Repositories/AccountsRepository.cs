@@ -1,4 +1,4 @@
-﻿using Data;
+using Data;
 using Entities.Models;
 using Microsoft.EntityFrameworkCore;
 using Services.Repositories;
