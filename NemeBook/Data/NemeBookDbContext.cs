@@ -224,6 +224,8 @@ public class NemeBookDbContext : DbContext
 
         modelBuilder.Entity<Message>(entity =>
         {
+            entity.HasQueryFilter(message => !message.IsDeleted);
+
             entity.Property(message => message.Text).HasMaxLength(4000);
 
             entity.HasOne(message => message.Chat)

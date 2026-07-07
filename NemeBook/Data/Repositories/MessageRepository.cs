@@ -45,7 +45,7 @@ public class MessageRepository : IMessageRepository
             return;
         }
 
-        dbContext.Messages.Remove(message);
+        message.IsDeleted = true;
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
