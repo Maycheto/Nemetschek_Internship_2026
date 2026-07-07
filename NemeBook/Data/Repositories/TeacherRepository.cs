@@ -39,13 +39,16 @@ public class TeacherRepository : ITeacherRepository
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var teacher = await GetByIdAsync(id, cancellationToken);
+        var teacher = await dbContext.Teachers
+            .Include(existingTeacher => existingTeacher.User)
+            .FirstOrDefaultAsync(existingTeacher => existingTeacher.Id == id, cancellationToken);
+
         if (teacher is null)
         {
             return;
         }
 
-        dbContext.Teachers.Remove(teacher);
+        teacher.User.IsDeleted = true;
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }

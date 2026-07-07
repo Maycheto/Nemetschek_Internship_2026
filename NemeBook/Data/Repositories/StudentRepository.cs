@@ -39,13 +39,16 @@ public class StudentRepository : IStudentRepository
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var student = await GetByIdAsync(id, cancellationToken);
+        var student = await dbContext.Students
+            .Include(existingStudent => existingStudent.User)
+            .FirstOrDefaultAsync(existingStudent => existingStudent.Id == id, cancellationToken);
+
         if (student is null)
         {
             return;
         }
 
-        dbContext.Students.Remove(student);
+        student.User.IsDeleted = true;
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
