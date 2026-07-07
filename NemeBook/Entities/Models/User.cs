@@ -13,6 +13,7 @@ public class User
 
     [EmailAddress]
     public string Email { get; set; } = null!;
+
     public string Password { get; set; } = null!;
     
     [Phone]
@@ -27,4 +28,5 @@ public class User
     public Teacher? Teacher { get; set; }
 
     public List<Chat> Chats { get; set; } = new List<Chat>();
+    public List<Notification> Notifications { get; set; } = new List<Notification>();
 }
