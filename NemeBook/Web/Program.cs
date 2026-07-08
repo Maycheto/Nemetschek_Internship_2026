@@ -24,6 +24,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<NemeBookDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddTransient<RateLimitingOptions>();
 // Register repositories.
 builder.Services.AddScoped<IAbsenceRepository, AbsenceRepository>();
 builder.Services.AddScoped<IAccountsRepository, AccountsRepository>();

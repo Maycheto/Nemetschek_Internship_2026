@@ -1,11 +1,11 @@
-using System.Linq;
 using Entities.Enums;
-using Entities.Models;
 using EmailAttachment = Entities.Models.EmailAttachment;
+using MailKit.Net.Smtp;
+using MailKit.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Resend;
+using MimeKit;
 using Services.Dtos.Registration;
 using Services.Interfaces;
 using Services.Interfaces.Registration;
@@ -19,7 +19,10 @@ public class EmailService : IEmailService, IRegistrationEmailSender
     private readonly ILogger<EmailService> _logger;
     private readonly RegistrationEmailOptions _registrationEmailOptions;
 
-    private const string ResendApiKeyKey = "Email:ResendApiKey";
+    private const string SmtpHostKey = "Email:SmtpHost";
+    private const string SmtpPortKey = "Email:SmtpPort";
+    private const string SmtpUsernameKey = "Email:SmtpUsername";
+    private const string SmtpPasswordKey = "Email:SmtpPassword";
     private const string FromEmailKey = "Email:FromEmail";
     private const string FromNameKey = "Email:FromName";
 
@@ -35,40 +38,7 @@ public class EmailService : IEmailService, IRegistrationEmailSender
 
     public async Task SendEmailAsync(string to, string subject, string content, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var resendApiKey = _configuration[ResendApiKeyKey] ?? "re_send_api_key_placeholder";
-            var fromEmail = _configuration[FromEmailKey] ?? "noreply@nemebook.com";
-            var fromName = _configuration[FromNameKey] ?? "NemeBook";
-
-            var fromAddress = $"{fromName} <{fromEmail}>";
-
-            _logger.LogInformation("Sending email to {To} with subject '{Subject}'", to, subject);
-
-            if (string.IsNullOrWhiteSpace(resendApiKey) || resendApiKey.Contains("placeholder"))
-            {
-                _logger.LogWarning("Resend API key is not configured properly. Skipping actual send to {To}.", to);
-                _logger.LogDebug("Email body: {Content}", content);
-                return;
-            }
-
-            var resendClient = ResendClient.Create(resendApiKey);
-            var message = new EmailMessage
-            {
-                From = fromAddress,
-                To = new[] { to },
-                Subject = subject,
-                TextBody = content
-            };
-
-            await resendClient.EmailSendAsync(message, cancellationToken);
-            _logger.LogInformation("Email sent successfully to {To}", to);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error sending email to {To}", to);
-            throw;
-        }
+        await SendEmailInternalAsync(to, subject, content, null, cancellationToken);
     }
 
     public async Task SendEmailAsync(List<string> recipients, string subject, string content, CancellationToken cancellationToken = default)
@@ -91,43 +61,63 @@ public class EmailService : IEmailService, IRegistrationEmailSender
 
     public async Task SendEmailWithAttachmentsAsync(string to, string subject, string content, List<EmailAttachment> attachments, CancellationToken cancellationToken = default)
     {
+        await SendEmailInternalAsync(to, subject, content, attachments, cancellationToken);
+    }
+
+    private async Task SendEmailInternalAsync(
+        string to,
+        string subject,
+        string content,
+        List<EmailAttachment>? attachments,
+        CancellationToken cancellationToken)
+    {
         try
         {
-            _logger.LogInformation("Sending email with {AttachmentCount} attachments to {To}", attachments.Count, to);
-
-            var resendApiKey = _configuration[ResendApiKeyKey] ?? "re_send_api_key_placeholder";
-            var fromEmail = _configuration[FromEmailKey] ?? "noreply@nemebook.com";
+            var smtpHost = _configuration[SmtpHostKey] ?? Environment.GetEnvironmentVariable("SMTP_HOST") ?? "smtp.gmail.com";
+            var smtpPortRaw = _configuration[SmtpPortKey] ?? Environment.GetEnvironmentVariable("SMTP_PORT") ?? "587";
+            var smtpUsername = _configuration[SmtpUsernameKey] ?? Environment.GetEnvironmentVariable("SMTP_USERNAME") ?? "nemebook1@gmail.com";
+            var smtpPassword = _configuration[SmtpPasswordKey] ?? Environment.GetEnvironmentVariable("SMTP_PASSWORD") ?? "rhkt oyhj wgdw qfkp";
+            var fromEmail = _configuration[FromEmailKey] ?? smtpUsername;
             var fromName = _configuration[FromNameKey] ?? "NemeBook";
-            var fromAddress = $"{fromName} <{fromEmail}>";
+            _logger.LogInformation("Sending email to {To} with subject '{Subject}'", to, subject);
 
-            if (string.IsNullOrWhiteSpace(resendApiKey) || resendApiKey.Contains("placeholder"))
+            if (string.IsNullOrWhiteSpace(smtpHost) || string.IsNullOrWhiteSpace(smtpUsername) || string.IsNullOrWhiteSpace(smtpPassword))
             {
-                _logger.LogWarning("Resend API key is not configured properly. Skipping actual send to {To}.", to);
+                _logger.LogWarning("SMTP is not configured properly. Skipping actual send to {To}.", to);
                 _logger.LogDebug("Email body: {Content}", content);
                 return;
             }
 
-            var resendClient = ResendClient.Create(resendApiKey);
-            var message = new EmailMessage
-            {
-                From = fromAddress,
-                To = new[] { to },
-                Subject = subject,
-                TextBody = content,
-                Attachments = attachments.Select(a => new Resend.EmailAttachment
-                {
-                    Filename = a.FileName,
-                    Content = a.FileContent,
-                    ContentType = a.ContentType
-                }).ToList()
-            };
+            var smtpPort = int.Parse(smtpPortRaw);
 
-            await resendClient.EmailSendAsync(message, cancellationToken);
-            _logger.LogInformation("Email with attachments sent to {To}", to);
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress(fromName, fromEmail));
+            message.To.Add(MailboxAddress.Parse(to));
+            message.Subject = subject;
+
+            var bodyBuilder = new BodyBuilder { TextBody = content };
+
+            if (attachments is { Count: > 0 })
+            {
+                foreach (var attachment in attachments)
+                {
+                    bodyBuilder.Attachments.Add(attachment.FileName, attachment.FileContent, ContentType.Parse(attachment.ContentType));
+                }
+            }
+
+            message.Body = bodyBuilder.ToMessageBody();
+
+            using var client = new SmtpClient();
+            await client.ConnectAsync(smtpHost, smtpPort, SecureSocketOptions.StartTls, cancellationToken);
+            await client.AuthenticateAsync(smtpUsername, smtpPassword, cancellationToken);
+            await client.SendAsync(message, cancellationToken);
+            await client.DisconnectAsync(true, cancellationToken);
+
+            _logger.LogInformation("Email sent successfully to {To}", to);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error sending email with attachments to {To}", to);
+            _logger.LogError(ex, "Error sending email to {To}", to);
             throw;
         }
     }
