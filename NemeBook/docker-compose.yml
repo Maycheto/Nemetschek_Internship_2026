@@ -1,0 +1,44 @@
+﻿services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: nemebook-mssql
+    env_file:
+      - .env
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Web/Dockerfile
+    container_name: nemebook-web
+    depends_on:
+      - mssql
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
+      ConnectionStrings__DefaultConnection: Server=mssql,1433;Database=NemeBook;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=False;
+      Email__SmtpHost: ${SMTP_HOST}
+      Email__SmtpPort: ${SMTP_PORT}
+      Email__SmtpUsername: ${SMTP_USERNAME}
+      Email__SmtpPassword: ${SMTP_PASSWORD}
+      Email__FromEmail: ${SMTP_FROM_EMAIL}
+      Email__FromName: ${SMTP_FROM_NAME}
+      RegistrationEmail__BaseUrl: ${REG_BASE_URL}
+      RegistrationEmail__SetPasswordPath: ${REG_SET_PASSWORD_PATH}
+      RegistrationEmail__ParentSignUpPath: ${REG_PARENT_SIGNUP_PATH}
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+
+volumes:
+  mssql-data:
