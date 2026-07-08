@@ -12,10 +12,10 @@ public sealed class SmtpOptions
         FromEmail = email;
         FromName = name;
     }
-    public string Host { get; init; }
-    public int Port { get; init; }
-    public string Username { get; init; }
-    public string Password { get; init; }
-    public string? FromEmail { get; init; }
+    public string Host { get; set; }
+    public int Port { get; set; }
+    public string Username { get; set; }
+    public string Password { get; set; }
+    public string? FromEmail { get; set; }
     public string? FromName { get; set; }
 }
