@@ -32,13 +32,24 @@ using Services.Services.Subjects;
 using Services.Services.Teachers;
 
 var builder = WebApplication.CreateBuilder(args);
-Env.Load(Path.Combine(Directory.GetCurrentDirectory(), "..",".env"));
+
+var envPath = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", ".env"));
+if (File.Exists(envPath))
+{
+    Env.Load(envPath);
+}
+
 builder.Configuration.AddEnvironmentVariables();
+
 // Add services to the container.
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured.");
+
 builder.Services.AddDbContext<NemeBookDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(connectionString));
 
 builder.Services.AddTransient<RateLimitingOptions>();
+
 // Register repositories.
 builder.Services.AddScoped<IAbsenceRepository, AbsenceRepository>();
 builder.Services.AddScoped<IAccountsRepository, AccountsRepository>();
@@ -89,9 +100,17 @@ builder.Services.AddScoped<IStudentService, StudentService>();
 builder.Services.Configure<RegistrationEmailOptions>(
     builder.Configuration.GetSection("RegistrationEmail"));
 
-builder.Services.Configure<SmtpOptions>(
-    builder.Configuration.GetSection("Email"));
-builder.Services.AddTransient<RateLimitingOptions>();
+builder.Services.Configure<SmtpOptions>(options =>
+{
+    var emailSection = builder.Configuration.GetSection("Email");
+
+    options.Host = emailSection["SmtpHost"] ?? string.Empty;
+    options.Port = emailSection.GetValue<int>("SmtpPort");
+    options.Username = emailSection["SmtpUsername"] ?? string.Empty;
+    options.Password = emailSection["SmtpPassword"] ?? string.Empty;
+    options.FromEmail = emailSection["FromEmail"];
+    options.FromName = emailSection["FromName"];
+});
 
 // Add Cookie Authentication.
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
