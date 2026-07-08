@@ -59,7 +59,7 @@ public class GradeRepository : IGradeRepository
         query = ApplyFilter(query, filter);
 
         return await query
-            .OrderByDescending(g => g.Date)
+            .OrderByDescending(g => g.CreatedAt)
             .ToListAsync(cancellationToken);
     }
 
@@ -74,7 +74,7 @@ public class GradeRepository : IGradeRepository
         query = ApplyFilter(query, filter);
 
         return await query
-            .OrderByDescending(g => g.Date)
+            .OrderByDescending(g => g.CreatedAt)
             .ToListAsync(cancellationToken);
     }
 
@@ -93,7 +93,7 @@ public class GradeRepository : IGradeRepository
 
         return await _dbContext.Grades
             .Where(g => g.StudentId == studentId && g.ClassSubjectId == classSubjectId)
-            .OrderByDescending(g => g.Date)
+            .OrderByDescending(g => g.CreatedAt)
             .ToListAsync(cancellationToken);
     }
 
@@ -154,10 +154,10 @@ public class GradeRepository : IGradeRepository
             return query;
 
         if (filter.FromDate.HasValue)
-            query = query.Where(g => g.Date >= filter.FromDate.Value);
+            query = query.Where(g => g.CreatedAt >= filter.FromDate.Value);
 
         if (filter.ToDate.HasValue)
-            query = query.Where(g => g.Date <= filter.ToDate.Value);
+            query = query.Where(g => g.CreatedAt <= filter.ToDate.Value);
 
         if (filter.Type.HasValue)
             query = query.Where(g => g.Type == filter.Type.Value);

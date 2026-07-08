@@ -82,7 +82,11 @@ public class GradeService : IGradeService
 
         foreach (var cs in relevantClassSubjects)
         {
-            teacherIds.Add(cs.TeacherId);
+            if (cs.TeacherId.HasValue)
+            {
+                teacherIds.Add(cs.TeacherId.Value);
+            }
+
             subjectIds.Add(cs.SubjectId);
         }
 
@@ -135,7 +139,9 @@ public class GradeService : IGradeService
         var classSubjectTeacherDict = relevantClassSubjects
             .ToDictionary(
                 cs => cs.Id,
-                cs => teacherNameByTeacherId.GetValueOrDefault(cs.TeacherId, "Unknown"));
+                cs => cs.TeacherId.HasValue
+                    ? teacherNameByTeacherId.GetValueOrDefault(cs.TeacherId.Value, "Unknown")
+                    : "Unassigned");
 
         var gradeDtos = grades.Select(g => new GradeDto
         {
@@ -143,7 +149,7 @@ public class GradeService : IGradeService
             Value = g.Value,
             Type = g.Type,
             Note = g.Note,
-            Date = g.Date,
+            Date = g.CreatedAt,
             SubjectId = relevantClassSubjects.FirstOrDefault(cs => cs.Id == g.ClassSubjectId)?.SubjectId ?? Guid.Empty,
             SubjectName = classSubjectSubjectDict.GetValueOrDefault(g.ClassSubjectId, "Unknown"),
             TeacherId = relevantClassSubjects.FirstOrDefault(cs => cs.Id == g.ClassSubjectId)?.TeacherId ?? Guid.Empty,
@@ -213,14 +219,18 @@ public class GradeService : IGradeService
         if (classSubject is null)
             throw new InvalidOperationException("Subject is not taught in this class.");
 
-        var teacher = await _teacherService.GetByIdAsync(classSubject.TeacherId, cancellationToken);
-        if (teacher is null)
-            throw new InvalidOperationException("Teacher not found.");
+        var teacherName = "Unassigned";
+        if (classSubject.TeacherId.HasValue)
+        {
+            var teacher = await _teacherService.GetByIdAsync(classSubject.TeacherId.Value, cancellationToken);
+            if (teacher is null)
+                throw new InvalidOperationException("Teacher not found.");
 
-        var teacherUser = await _userRepository.GetByIdAsync(teacher.UserId, cancellationToken);
-        var teacherName = teacherUser is not null
-            ? $"{teacherUser.FirstName} {teacherUser.LastName}"
-            : "Unknown";
+            var teacherUser = await _userRepository.GetByIdAsync(teacher.UserId, cancellationToken);
+            teacherName = teacherUser is not null
+                ? $"{teacherUser.FirstName} {teacherUser.LastName}"
+                : "Unknown";
+        }
 
         var gradeFilter = filter is not null ? new GradeFilter
         {
@@ -256,10 +266,10 @@ public class GradeService : IGradeService
             Value = g.Value,
             Type = g.Type,
             Note = g.Note,
-            Date = g.Date,
+            Date = g.CreatedAt,
             SubjectId = subjectId,
             SubjectName = subject.Name,
-            TeacherId = classSubject.TeacherId,
+            TeacherId = classSubject.TeacherId ?? Guid.Empty,
             TeacherName = teacherName,
             StudentId = g.StudentId,
             StudentName = studentNameMap.GetValueOrDefault(g.StudentId, "Unknown")
@@ -271,7 +281,7 @@ public class GradeService : IGradeService
             ClassName = $"{classEntity.GradeNumber}{classEntity.Letter}",
             SubjectId = subjectId,
             SubjectName = subject.Name,
-            TeacherId = classSubject.TeacherId,
+            TeacherId = classSubject.TeacherId ?? Guid.Empty,
             TeacherName = teacherName
         };
 
