@@ -66,9 +66,36 @@ public class GradeController : Controller
         ViewBag.FromDate = filter?.FromDate?.ToString("yyyy-MM-dd");
         ViewBag.ToDate = filter?.ToDate?.ToString("yyyy-MM-dd");
 
-        return View(viewModel);
-    }
+        await SetTeacherViewBagDataAsync(); 
 
+        return View(viewModel);
+
+    }
+    private async Task SetTeacherViewBagDataAsync()
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue) return;
+
+        var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+        if (role == "Teacher" || role == "Principal")
+        {
+            var teachers = await _teacherService.GetAllAsync();
+            var teacher = teachers.FirstOrDefault(t => t.UserId == userId.Value);
+
+            if (teacher is not null)
+            {
+                var classSubjects = await _classSubjectService.GetAllAsync();
+                var classSubject = classSubjects.FirstOrDefault(cs => cs.TeacherId == teacher.Id);
+
+                if (classSubject is not null)
+                {
+                    ViewBag.ClassId = classSubject.ClassId;
+                    ViewBag.SubjectId = classSubject.SubjectId;
+                }
+            }
+        }
+    }
     [HttpGet]
     [Authorize(Roles = "Teacher,Principal,Parent")]
     public async Task<IActionResult> StudentGrades(Guid studentId, GradeFilterRequest? filter = null)
@@ -140,6 +167,52 @@ public class GradeController : Controller
 
         return Json(new { studentId, subjectId, average });
     }
+
+    [HttpGet]
+[Authorize(Roles = "Teacher,Principal")]
+public async Task<IActionResult> SelectClassAndSubject()
+{
+    var userId = GetCurrentUserId();
+    if (!userId.HasValue)
+        return RedirectToAction("Login", "Account");
+
+    var teachers = await _teacherService.GetAllAsync();
+    var teacher = teachers.FirstOrDefault(t => t.UserId == userId.Value);
+    
+    if (teacher is null)
+        return RedirectToAction("AccessDenied", "Account");
+
+    var classSubjects = await _classSubjectService.GetAllAsync();
+    var teacherClassSubjects = classSubjects
+        .Where(cs => cs.TeacherId == teacher.Id)
+        .ToList();
+
+    var classes = await _classService.GetAllAsync();
+    var subjects = await _subjectService.GetAllAsync();
+
+    var viewModel = new SelectClassSubjectViewModel
+    {
+        TeacherId = teacher.Id,
+        TeacherName = $"{teacher.User.FirstName} {teacher.User.LastName}",
+        AvailableClasses = classes
+            .Where(c => teacherClassSubjects.Any(tcs => tcs.ClassId == c.Id))
+            .Select(c => new ClassSelectDto { Id = c.Id, Name = $"{c.GradeNumber}{c.Letter}" })
+            .ToList(),
+        AvailableSubjects = subjects
+            .Where(s => teacherClassSubjects.Any(tcs => tcs.SubjectId == s.Id))
+            .Select(s => new SubjectSelectDto { Id = s.Id, Name = s.Name })
+            .ToList()
+    };
+
+    return View(viewModel);
+}
+
+[HttpPost]
+[Authorize(Roles = "Teacher,Principal")]
+public IActionResult SelectClassAndSubject(Guid classId, Guid subjectId)
+{
+    return RedirectToAction("ClassGrades", new { classId, subjectId });
+}
 
     private Guid? GetCurrentUserId()
     {
@@ -225,6 +298,26 @@ public class GradeController : Controller
 }
 
 public class SubjectDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+}
+
+public class SelectClassSubjectViewModel
+{
+    public Guid TeacherId { get; set; }
+    public string TeacherName { get; set; } = string.Empty;
+    public List<ClassSelectDto> AvailableClasses { get; set; } = new();
+    public List<SubjectSelectDto> AvailableSubjects { get; set; } = new();
+}
+
+public class ClassSelectDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+}
+
+public class SubjectSelectDto
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;

@@ -309,9 +309,6 @@ namespace Data.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("bit");
-
                     b.Property<Guid?>("EventId")
                         .HasColumnType("uniqueidentifier");
 
@@ -320,6 +317,9 @@ namespace Data.Migrations
 
                     b.Property<Guid?>("GradeId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Text")
                         .IsRequired()
@@ -362,6 +362,37 @@ namespace Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Parents");
+                });
+
+            modelBuilder.Entity("Entities.Models.PasswordResetToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("PasswordResetTokens");
                 });
 
             modelBuilder.Entity("Entities.Models.RegistrationInvitation", b =>
@@ -496,7 +527,6 @@ namespace Data.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("MiddleName")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
@@ -755,6 +785,17 @@ namespace Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Entities.Models.PasswordResetToken", b =>
+                {
+                    b.HasOne("Entities.Models.User", "User")
+                        .WithOne("PasswordResetToken")
+                        .HasForeignKey("Entities.Models.PasswordResetToken", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Entities.Models.RegistrationInvitation", b =>
                 {
                     b.HasOne("Entities.Models.User", "User")
@@ -872,6 +913,8 @@ namespace Data.Migrations
                     b.Navigation("Notifications");
 
                     b.Navigation("Parent");
+
+                    b.Navigation("PasswordResetToken");
 
                     b.Navigation("Student");
 
