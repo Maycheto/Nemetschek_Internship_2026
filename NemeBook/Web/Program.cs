@@ -1,6 +1,7 @@
 ﻿using Data;
 using Data.Repositories;
 using DotNetEnv;
+using Entities.Enums;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Services.Dtos.Registration;
@@ -139,7 +140,7 @@ builder.Services.AddControllersWithViews();
 var app = builder.Build();
 
 await EnsureDatabaseReadyAndMigratedAsync(app);
-await SeedPrincipalAsync(app);
+await SeedDefaultUsersAsync(app);
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -211,12 +212,24 @@ static async Task EnsureDatabaseReadyAndMigratedAsync(WebApplication app)
     await dbContext.Database.MigrateAsync();
 }
 
-static async Task SeedPrincipalAsync(WebApplication app)
+static async Task SeedDefaultUsersAsync(WebApplication app)
 {
-    var firstName = app.Configuration["SeedPrincipal:FirstName"];
-    var lastName = app.Configuration["SeedPrincipal:LastName"];
-    var email = app.Configuration["SeedPrincipal:Email"];
-    var password = app.Configuration["SeedPrincipal:Password"];
+    await SeedUserBySectionAsync(app, "SeedPrincipal", UserRole.Principal, "PrincipalSeeder");
+    await SeedUserBySectionAsync(app, "SeedTeacher", UserRole.Teacher, "TeacherSeeder");
+    await SeedUserBySectionAsync(app, "SeedParent", UserRole.Parent, "ParentSeeder");
+    await SeedUserBySectionAsync(app, "SeedStudent", UserRole.Student, "StudentSeeder");
+}
+
+static async Task SeedUserBySectionAsync(
+    WebApplication app,
+    string sectionName,
+    UserRole role,
+    string loggerName)
+{
+    var firstName = app.Configuration[$"{sectionName}:FirstName"];
+    var lastName = app.Configuration[$"{sectionName}:LastName"];
+    var email = app.Configuration[$"{sectionName}:Email"];
+    var password = app.Configuration[$"{sectionName}:Password"];
 
     if (string.IsNullOrWhiteSpace(firstName) ||
         string.IsNullOrWhiteSpace(lastName) ||
@@ -228,21 +241,24 @@ static async Task SeedPrincipalAsync(WebApplication app)
 
     using var scope = app.Services.CreateScope();
     var registrationService = scope.ServiceProvider.GetRequiredService<IRegistrationService>();
-    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("PrincipalSeeder");
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger(loggerName);
 
-    var result = await registrationService.SeedPrincipalAsync(
+    var result = await registrationService.SeedUserAsync(
         new SeedPrincipalRequest
         {
             FirstName = firstName,
-            MiddleName = app.Configuration["SeedPrincipal:MiddleName"],
+            MiddleName = app.Configuration[$"{sectionName}:MiddleName"],
             LastName = lastName,
             Email = email,
-            PhoneNumber = app.Configuration["SeedPrincipal:PhoneNumber"],
+            PhoneNumber = app.Configuration[$"{sectionName}:PhoneNumber"],
             Password = password
-        });
+        },
+        role);
 
     logger.LogInformation(
-        "Principal seed completed. Created: {Created}, UserId: {UserId}",
+        "{Role} seed completed. Created: {Created}, UserId: {UserId}, Email: {Email}",
+        role,
         result.Created,
-        result.UserId);
+        result.UserId,
+        email);
 }

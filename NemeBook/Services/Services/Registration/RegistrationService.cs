@@ -314,6 +314,14 @@ public class RegistrationService : IRegistrationService
         SeedPrincipalRequest request,
         CancellationToken cancellationToken = default)
     {
+        return await SeedUserAsync(request, UserRole.Principal, cancellationToken);
+    }
+
+    public async Task<PrincipalSeedResult> SeedUserAsync(
+        SeedPrincipalRequest request,
+        UserRole role,
+        CancellationToken cancellationToken = default)
+    {
         ArgumentNullException.ThrowIfNull(request);
         EnsureValidName(request.FirstName, nameof(request.FirstName));
         EnsureValidOptionalName(request.MiddleName, nameof(request.MiddleName));
@@ -325,9 +333,9 @@ public class RegistrationService : IRegistrationService
         var existingUser = await accountsRepository.GetByEmailAsync(email, cancellationToken);
         if (existingUser is not null)
         {
-            if (existingUser.Role != UserRole.Principal)
+            if (existingUser.Role != role)
             {
-                throw new InvalidOperationException("A non-principal account already uses this email.");
+                throw new InvalidOperationException($"A non-{role.ToString().ToLowerInvariant()} account already uses this email.");
             }
 
             return new PrincipalSeedResult
@@ -346,7 +354,7 @@ public class RegistrationService : IRegistrationService
             Email = email,
             PhoneNumber = NormalizeOptional(request.PhoneNumber),
             Password = passwordHasher.HashPassword(request.Password),
-            Role = UserRole.Principal
+            Role = role
         };
 
         await accountsRepository.CreateAsync(user, cancellationToken);

@@ -1,3 +1,4 @@
+using Entities.Enums;
 using Services.Dtos.Registration;
 
 namespace Services.Interfaces.Registration;
@@ -26,5 +27,10 @@ public interface IRegistrationService
 
     Task<PrincipalSeedResult> SeedPrincipalAsync(
         SeedPrincipalRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<PrincipalSeedResult> SeedUserAsync(
+        SeedPrincipalRequest request,
+        UserRole role,
         CancellationToken cancellationToken = default);
 }
