@@ -2,7 +2,7 @@ namespace Services.Options;
 
 public sealed class SmtpOptions
 {
-    private SmtpOptions(){}
+    public SmtpOptions() { }
     public SmtpOptions(string smtphost, int port, string username, string password, string email, string name)
     {
         Host = smtphost;
@@ -12,10 +12,10 @@ public sealed class SmtpOptions
         FromEmail = email;
         FromName = name;
     }
-    public string Host { get; set; }
+    public string Host { get; set; } = string.Empty;
     public int Port { get; set; }
-    public string Username { get; set; }
-    public string Password { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
     public string? FromEmail { get; set; }
     public string? FromName { get; set; }
 }

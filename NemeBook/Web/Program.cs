@@ -1,8 +1,9 @@
-using Data;
+﻿using Data;
 using Data.Repositories;
 using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
+using Services.Dtos.Registration;
 using Services.Interfaces;
 using Services.Interfaces.Chats;
 using Services.Interfaces.Classes;
@@ -44,6 +45,12 @@ builder.Configuration.AddEnvironmentVariables();
 // Add services to the container.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured.");
+
+if (IsRunningInContainer() && LooksLikeLocalOnlyConnection(connectionString))
+{
+    var saPassword = builder.Configuration["MSSQL_SA_PASSWORD"] ?? "Your_strong_password_123!";
+    connectionString = $"Server=mssql,1433;Database=NemeBook;User Id=sa;Password={saPassword};TrustServerCertificate=True;Encrypt=False;";
+}
 
 builder.Services.AddDbContext<NemeBookDbContext>(options =>
     options.UseSqlServer(connectionString));
@@ -131,6 +138,9 @@ builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
 
+await EnsureDatabaseReadyAndMigratedAsync(app);
+await SeedPrincipalAsync(app);
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
@@ -138,7 +148,15 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+var isRunningInContainer = string.Equals(
+    Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"),
+    "true",
+    StringComparison.OrdinalIgnoreCase);
+
+if (!isRunningInContainer)
+{
+    app.UseHttpsRedirection();
+}
 app.UseRouting();
 
 app.UseAuthentication();
@@ -152,3 +170,79 @@ app.MapControllerRoute(
     .WithStaticAssets();
 
 app.Run();
+
+static bool IsRunningInContainer()
+{
+    return string.Equals(
+        Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"),
+        "true",
+        StringComparison.OrdinalIgnoreCase);
+}
+
+static bool LooksLikeLocalOnlyConnection(string connectionString)
+{
+    return connectionString.Contains("(localdb)", StringComparison.OrdinalIgnoreCase)
+           || connectionString.Contains("Server=localhost", StringComparison.OrdinalIgnoreCase)
+           || connectionString.Contains("Data Source=localhost", StringComparison.OrdinalIgnoreCase);
+}
+
+static async Task EnsureDatabaseReadyAndMigratedAsync(WebApplication app)
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<NemeBookDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DatabaseStartup");
+
+    const int maxAttempts = 15;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++)
+    {
+        try
+        {
+            await dbContext.Database.MigrateAsync();
+            logger.LogInformation("Database is ready and migrations are applied.");
+            return;
+        }
+        catch (Exception ex) when (attempt < maxAttempts)
+        {
+            logger.LogWarning(ex, "Database not ready yet. Retry {Attempt}/{MaxAttempts}...", attempt, maxAttempts);
+            await Task.Delay(TimeSpan.FromSeconds(3));
+        }
+    }
+
+    await dbContext.Database.MigrateAsync();
+}
+
+static async Task SeedPrincipalAsync(WebApplication app)
+{
+    var firstName = app.Configuration["SeedPrincipal:FirstName"];
+    var lastName = app.Configuration["SeedPrincipal:LastName"];
+    var email = app.Configuration["SeedPrincipal:Email"];
+    var password = app.Configuration["SeedPrincipal:Password"];
+
+    if (string.IsNullOrWhiteSpace(firstName) ||
+        string.IsNullOrWhiteSpace(lastName) ||
+        string.IsNullOrWhiteSpace(email) ||
+        string.IsNullOrWhiteSpace(password))
+    {
+        return;
+    }
+
+    using var scope = app.Services.CreateScope();
+    var registrationService = scope.ServiceProvider.GetRequiredService<IRegistrationService>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("PrincipalSeeder");
+
+    var result = await registrationService.SeedPrincipalAsync(
+        new SeedPrincipalRequest
+        {
+            FirstName = firstName,
+            MiddleName = app.Configuration["SeedPrincipal:MiddleName"],
+            LastName = lastName,
+            Email = email,
+            PhoneNumber = app.Configuration["SeedPrincipal:PhoneNumber"],
+            Password = password
+        });
+
+    logger.LogInformation(
+        "Principal seed completed. Created: {Created}, UserId: {UserId}",
+        result.Created,
+        result.UserId);
+}
