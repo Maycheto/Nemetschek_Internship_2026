@@ -63,6 +63,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Create CI Env File
+        run: |
+          cat > .env << 'EOF'
+          MSSQL_SA_PASSWORD=Your_strong_password_123!
+          ASPNETCORE_ENVIRONMENT=Development
+          WEB_HOST_PORT=8081
+          RegistrationEmail__BaseUrl=http://localhost:8081
+          EOF
+
       - name: Build And Start Containers
         run: docker compose up --build -d
 
