@@ -1,5 +1,6 @@
 ﻿// Web/Controllers/AccountController.cs
 using System.Security.Claims;
+using Entities.Enums;
 using Entities.ViewModels.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -88,9 +89,14 @@ public class AccountController : Controller
 
     [HttpGet]
     [AllowAnonymous]
-    public IActionResult SetPassword(string? token)
+    public async Task<IActionResult> SetPassword(string? token, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(token))
+        {
+            return RedirectToAction(nameof(Login));
+        }
+
+        if (!await IsInvitationValidAsync(token, RegistrationInvitationType.SetPassword, cancellationToken))
         {
             return RedirectToAction(nameof(Login));
         }
@@ -123,15 +129,20 @@ public class AccountController : Controller
             return View(model);
         }
 
-        TempData["SuccessMessage"] = "Password set successfully. You can now log in.";
+        TempData["SuccessMessage"] = "Паролата е създадена успешно. Вече можете да влезете в профила си.";
         return RedirectToAction(nameof(Login));
     }
 
     [HttpGet]
     [AllowAnonymous]
-    public IActionResult ParentSignUp(string? token)
+    public async Task<IActionResult> ParentSignUp(string? token, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(token))
+        {
+            return RedirectToAction(nameof(Login));
+        }
+
+        if (!await IsInvitationValidAsync(token, RegistrationInvitationType.ParentSignUp, cancellationToken))
         {
             return RedirectToAction(nameof(Login));
         }
@@ -168,7 +179,7 @@ public class AccountController : Controller
             return View(model);
         }
 
-        TempData["SuccessMessage"] = "Registration completed successfully. You can now log in.";
+        TempData["SuccessMessage"] = "Регистрацията е завършена успешно. Вече можете да влезете в профила си.";
         return RedirectToAction(nameof(Login));
     }
 
@@ -283,5 +294,35 @@ public class AccountController : Controller
             return userId;
         }
         return null;
+    }
+
+    private async Task<bool> IsInvitationValidAsync(
+        string token,
+        RegistrationInvitationType type,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _registrationService.ValidateInvitationAsync(token, type, cancellationToken);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Registration invitation validation failed.");
+            TempData["ErrorMessage"] = GetInvitationErrorMessage(ex.Message);
+            return false;
+        }
+    }
+
+    private static string GetInvitationErrorMessage(string error)
+    {
+        return error switch
+        {
+            "Invitation has already been used." => "Тази покана вече е използвана.",
+            "Invitation has expired." => "Тази покана е изтекла.",
+            "Invitation was not found." => "Поканата не беше намерена.",
+            "Invitation type is invalid." => "Поканата е невалидна.",
+            _ => "Поканата е невалидна или вече е използвана."
+        };
     }
 }

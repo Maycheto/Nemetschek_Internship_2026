@@ -11,7 +11,7 @@ public class SetPasswordViewModel
     [DataType(DataType.Password)]
     public string Password { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Please confirm your password.")]
+    [Required(ErrorMessage = "Потвърждението на паролата е задължително.")]
     [DataType(DataType.Password)]
     [Compare(nameof(Password), ErrorMessage = "Паролите не съвпадат.")]
     public string ConfirmPassword { get; set; } = string.Empty;
