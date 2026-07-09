@@ -1,4 +1,4 @@
-﻿// Web/Controllers/AccountController.cs
+// Web/Controllers/AccountController.cs
 using System.Security.Claims;
 using Entities.Enums;
 using Entities.ViewModels.Auth;
@@ -58,7 +58,7 @@ public class AccountController : Controller
         var user = await _authService.LoginAsync(request);
         if (user is null)
         {
-            ModelState.AddModelError(string.Empty, "Invalid email or password.");
+            ModelState.AddModelError(string.Empty, "Невалиден имейл или парола.");
             ViewData["ReturnUrl"] = returnUrl;
             return View(request);
         }
@@ -127,8 +127,7 @@ public class AccountController : Controller
             return View(request);
         }
 
-        TempData["SuccessMessage"] = "Изпратихме линк за възстановяване на паролата.";
-        return RedirectToAction(nameof(Login));
+        return View("ChangePasswordWaiting");
     }
 
     [HttpGet]
@@ -210,7 +209,7 @@ public class AccountController : Controller
             await _registrationService.CompleteSetPasswordAsync(new CompleteSetPasswordRequest
             {
                 Token = model.Token,
-                Password = model.Password
+                Password = model.Password,
             });
         }
         catch (Exception ex)
@@ -260,7 +259,7 @@ public class AccountController : Controller
                 MiddleName = model.MiddleName,
                 LastName = model.LastName,
                 PhoneNumber = model.PhoneNumber,
-                Password = model.Password
+                Password = model.Password,
             });
         }
         catch (Exception ex)
@@ -298,7 +297,7 @@ public class AccountController : Controller
             LastName = user.LastName,
             Email = user.Email,
             PhoneNumber = user.PhoneNumber,
-            Role = user.Role.ToString()
+            Role = user.Role.ToString(),
         };
 
         return View(userInfo);
@@ -306,9 +305,35 @@ public class AccountController : Controller
 
     [HttpGet]
     [Authorize]
-    public IActionResult ChangePassword()
+    public async Task<IActionResult> ChangePassword(CancellationToken cancellationToken)
     {
-        return View();
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return RedirectToAction(nameof(Login), "Account");
+        }
+
+        var user = await _authService.GetUserByIdAsync(userId.Value, cancellationToken);
+        if (user is null)
+        {
+            return RedirectToAction(nameof(Login), "Account");
+        }
+
+        var resetUrlBase = Url.Action(
+            nameof(ResetPassword),
+            "Account",
+            values: null,
+            protocol: Request.Scheme);
+
+        if (string.IsNullOrWhiteSpace(resetUrlBase))
+        {
+            TempData["ErrorMessage"] = "Неуспешно създаване на линк за смяна на паролата.";
+            return RedirectToAction(nameof(Profile), "Account");
+        }
+
+        await _accountService.SendPasswordResetAsync(user.Email, resetUrlBase, cancellationToken);
+
+        return View("ChangePasswordWaiting");
     }
 
     [HttpPost]
@@ -334,11 +359,11 @@ public class AccountController : Controller
 
         if (!result)
         {
-            ModelState.AddModelError(string.Empty, "Current password is incorrect.");
+            ModelState.AddModelError(string.Empty, "Текущата парола е грешна.");
             return View(request);
         }
 
-        TempData["SuccessMessage"] = "Password changed successfully.";
+        TempData["SuccessMessage"] = "Паролата е сменена успешно.";
         return RedirectToAction("Profile", "Account");
     }
 
@@ -350,7 +375,7 @@ public class AccountController : Controller
             new Claim(ClaimTypes.Email, user.Email),
             new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"),
             new Claim(ClaimTypes.Role, user.Role.ToString()),
-            new Claim("FullName", FormatFullName(user.FirstName, user.MiddleName, user.LastName))
+            new Claim("FullName", FormatFullName(user.FirstName, user.MiddleName, user.LastName)),
         };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -360,7 +385,7 @@ public class AccountController : Controller
         {
             IsPersistent = rememberMe,
             ExpiresUtc = rememberMe ? DateTimeOffset.UtcNow.AddDays(7) : DateTimeOffset.UtcNow.AddDays(1),
-            AllowRefresh = true
+            AllowRefresh = true,
         };
 
         await HttpContext.SignInAsync(
@@ -384,6 +409,7 @@ public class AccountController : Controller
         {
             return userId;
         }
+
         return null;
     }
 
@@ -413,7 +439,7 @@ public class AccountController : Controller
             "Invitation has expired." => "Тази покана е изтекла.",
             "Invitation was not found." => "Поканата не беше намерена.",
             "Invitation type is invalid." => "Поканата е невалидна.",
-            _ => "Поканата е невалидна или вече е използвана."
+            _ => "Поканата е невалидна или вече е използвана.",
         };
     }
 
@@ -424,7 +450,7 @@ public class AccountController : Controller
             "Password reset link is invalid." => "Линкът за възстановяване е невалиден.",
             "Password reset link has expired." => "Линкът за възстановяване е изтекъл.",
             "Password must be at least 8 characters." => "Паролата трябва да бъде поне 8 символа.",
-            _ => "Неуспешно възстановяване на паролата."
+            _ => "Неуспешно възстановяване на паролата.",
         };
     }
 }
