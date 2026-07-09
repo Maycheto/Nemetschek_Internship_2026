@@ -11,6 +11,7 @@ using Services.Dtos.Registration;
 using Services.Interfaces;
 using Services.Interfaces.Registration;
 using Services.Repositories;
+using Web.Services;
 
 namespace Web.Controllers;
 
@@ -22,6 +23,8 @@ public class AccountController : Controller
     private readonly ILogger<AccountController> _logger;
     private readonly IEmailService _emailService;
     private readonly IPasswordResetRepository _passwordResetRepository;
+    private readonly IBackgroundEmailQueue _emailQueue;
+    private readonly IAccountsRepository _accountsRepository;
 
     public AccountController(
         IAuthService authService,
@@ -29,7 +32,9 @@ public class AccountController : Controller
         IRegistrationService registrationService,
         ILogger<AccountController> logger,
         IEmailService emailService,
-        IPasswordResetRepository passwordResetRepository)
+        IPasswordResetRepository passwordResetRepository,
+        IBackgroundEmailQueue emailQueue,
+        IAccountsRepository accountsRepository)
     {
         _authService = authService;
         _accountService = accountService;
@@ -37,6 +42,8 @@ public class AccountController : Controller
         _logger = logger;
         _emailService = emailService;
         _passwordResetRepository = passwordResetRepository;
+        _emailQueue = emailQueue;
+        _accountsRepository = accountsRepository;
     }
 
     [HttpGet]
@@ -115,7 +122,40 @@ public class AccountController : Controller
             return View(request);
         }
 
-        await _accountService.SendPasswordResetAsync(request.Email, resetUrl, cancellationToken);
+        // Get user and create token synchronously, but queue the email sending
+        var user = await _accountsRepository.GetByEmailAsync(request.Email, cancellationToken);
+        if (user is not null)
+        {
+            var token = new PasswordResetToken
+            {
+                UserId = user.Id,
+                Token = Guid.NewGuid().ToString("N"),
+                ExpiresAt = DateTime.UtcNow.AddMinutes(30),
+            };
+
+            await _passwordResetRepository.CreateOrReplaceAsync(token, cancellationToken);
+
+            var separator = resetUrl.Contains('?') ? "&" : "?";
+            var resetLink = $"{resetUrl}{separator}token={Uri.EscapeDataString(token.Token)}";
+
+            // Queue email sending in background - don't await
+            _emailQueue.Queue(async (serviceProvider, ct) =>
+            {
+                var emailService = serviceProvider.GetRequiredService<IEmailService>();
+                try
+                {
+                    await emailService.SendPasswordResetEmailAsync(
+                        user.Email,
+                        user.FirstName,
+                        resetLink,
+                        ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send password reset email for user {Email}", user.Email);
+                }
+            });
+        }
 
         return View("ChangePasswordWaiting");
     }
@@ -294,32 +334,44 @@ public class AccountController : Controller
 
         var recipientName = FormatFullName(user.FirstName, user.MiddleName, user.LastName);
 
-        await _emailService.SendPasswordResetEmailAsync(
-            user.Email,
-            recipientName,
-            changePasswordLink,
-            cancellationToken);
+        // Queue email sending in background - don't await
+        _emailQueue.Queue(async (serviceProvider, ct) =>
+        {
+            var emailService = serviceProvider.GetRequiredService<IEmailService>();
+            try
+            {
+                await emailService.SendPasswordResetEmailAsync(
+                    user.Email,
+                    recipientName,
+                    changePasswordLink,
+                    ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send password change email for user {Email}", user.Email);
+            }
+        });
 
-        _logger.LogInformation("Password change link sent to user: {Email}", user.Email);
+        _logger.LogInformation("Password change link queued for user: {Email}", user.Email);
 
         return View("ChangePasswordWaiting");
     }
 
     [HttpGet]
-    [Authorize]
+    [AllowAnonymous]
     public async Task<IActionResult> ChangePasswordConfirm(string? token, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(token))
         {
             TempData["ErrorMessage"] = "Invalid password change link.";
-            return RedirectToAction("Profile", "Account");
+            return RedirectToAction("Login", "Account");
         }
 
         var passwordResetToken = await _passwordResetRepository.GetByTokenAsync(token, cancellationToken);
         if (passwordResetToken is null)
         {
             TempData["ErrorMessage"] = "Invalid password change link.";
-            return RedirectToAction("Profile", "Account");
+            return RedirectToAction("Login", "Account");
         }
 
         if (passwordResetToken.ExpiresAt < DateTime.UtcNow)
@@ -327,41 +379,36 @@ public class AccountController : Controller
             await _passwordResetRepository.DeleteAsync(passwordResetToken.Id, cancellationToken);
 
             TempData["ErrorMessage"] = "Password change link has expired. Please request a new one.";
-            return RedirectToAction("Profile", "Account");
-        }
-
-        var userId = GetCurrentUserId();
-        if (!userId.HasValue || userId.Value != passwordResetToken.UserId)
-        {
-            TempData["ErrorMessage"] = "This password change link does not belong to the current user.";
-            return RedirectToAction("Profile", "Account");
+            return RedirectToAction("Login", "Account");
         }
 
         ViewData["Token"] = token;
-        return View("ChangePassword", new ChangePasswordRequest());
+        ViewData["FormAction"] = nameof(ChangePasswordConfirm);
+        return View("SetPassword", new SetPasswordViewModel { Token = token });
     }
 
     [HttpPost]
-    [Authorize]
+    [AllowAnonymous]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ChangePasswordConfirm(
-        ChangePasswordRequest request,
+        SetPasswordViewModel model,
         string? token,
         CancellationToken cancellationToken = default)
     {
         ViewData["Token"] = token;
+        ViewData["FormAction"] = nameof(ChangePasswordConfirm);
 
         if (string.IsNullOrWhiteSpace(token))
         {
             ModelState.AddModelError(string.Empty, "Invalid password change link.");
-            return View("ChangePassword", request);
+            return View("SetPassword", model);
         }
 
         var passwordResetToken = await _passwordResetRepository.GetByTokenAsync(token, cancellationToken);
         if (passwordResetToken is null)
         {
             ModelState.AddModelError(string.Empty, "Invalid password change link.");
-            return View("ChangePassword", request);
+            return View("SetPassword", model);
         }
 
         if (passwordResetToken.ExpiresAt < DateTime.UtcNow)
@@ -369,37 +416,30 @@ public class AccountController : Controller
             await _passwordResetRepository.DeleteAsync(passwordResetToken.Id, cancellationToken);
 
             ModelState.AddModelError(string.Empty, "Password change link has expired. Please request a new one.");
-            return View("ChangePassword", request);
-        }
-
-        var userId = GetCurrentUserId();
-        if (!userId.HasValue || userId.Value != passwordResetToken.UserId)
-        {
-            ModelState.AddModelError(string.Empty, "This password change link does not belong to the current user.");
-            return View("ChangePassword", request);
+            return View("SetPassword", model);
         }
 
         if (!ModelState.IsValid)
         {
-            return View("ChangePassword", request);
+            return View("SetPassword", model);
         }
 
-        var result = await _authService.ChangePasswordAsync(
-            userId.Value,
-            request.CurrentPassword,
-            request.NewPassword,
+        // Use ResetPasswordAsync with the userId from the token
+        var result = await _authService.ResetPasswordAsync(
+            passwordResetToken.UserId,
+            model.Password,
             cancellationToken);
 
         if (!result)
         {
-            ModelState.AddModelError(string.Empty, "Current password is incorrect.");
-            return View("ChangePassword", request);
+            ModelState.AddModelError(string.Empty, "Could not reset password. Please try again.");
+            return View("SetPassword", model);
         }
 
         await _passwordResetRepository.DeleteAsync(passwordResetToken.Id, cancellationToken);
 
-        TempData["SuccessMessage"] = "Password changed successfully.";
-        return View("PasswordChangedSuccess");
+        TempData["SuccessMessage"] = "Password reset successfully. You can now log in.";
+        return RedirectToAction(nameof(Login));
     }
 
     [HttpGet]
