@@ -446,13 +446,24 @@ public class AccountController : Controller
     [AllowAnonymous]
     public async Task<IActionResult> ResetPassword(string? token, CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation("ResetPassword GET called with token: {Token}", token ?? "null");
+        
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            _logger.LogWarning("ResetPassword called without token parameter");
+            TempData["ErrorMessage"] = "Invalid password reset link - no token provided.";
+            return RedirectToAction(nameof(Login));
+        }
+
         var passwordResetToken = await ValidatePasswordResetTokenAsync(token, cancellationToken);
         if (passwordResetToken is null)
         {
+            _logger.LogWarning("Password reset token validation failed for token: {Token}", token);
             TempData["ErrorMessage"] = "Invalid or expired password reset link.";
             return RedirectToAction(nameof(Login));
         }
 
+        _logger.LogInformation("Password reset token valid for user: {UserId}", passwordResetToken.UserId);
         ViewData["FormAction"] = nameof(ResetPassword);
         return View("SetPassword", new SetPasswordViewModel { Token = passwordResetToken.Token });
     }
