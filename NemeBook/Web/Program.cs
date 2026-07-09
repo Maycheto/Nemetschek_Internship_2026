@@ -214,11 +214,6 @@ static async Task EnsureDatabaseReadyAndMigratedAsync(WebApplication app)
             using var scope = app.Services.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<NemeBookDbContext>();
 
-            if (!await dbContext.Database.CanConnectAsync())
-            {
-                throw new InvalidOperationException("Database server accepted the connection but the database is not ready yet.");
-            }
-
             await dbContext.Database.MigrateAsync();
             logger.LogInformation("Database is ready and migrations are applied.");
             return;
