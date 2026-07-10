@@ -494,6 +494,74 @@ body {
   white-space: nowrap;
 }
 
+.nb-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(37, 38, 43, 0.42);
+  backdrop-filter: blur(3px);
+}
+
+.nb-loading-overlay.is-visible {
+  display: flex;
+}
+
+.nb-loading-panel {
+  width: min(100%, 360px);
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 28px 24px;
+  border: 1px solid rgba(223, 227, 234, 0.95);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 24px 56px rgba(36, 30, 24, 0.2);
+  color: var(--nb-text);
+  text-align: center;
+}
+
+.nb-loading-panel strong {
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.nb-loading-panel span:not(.nb-loading-spinner) {
+  color: var(--nb-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.nb-loading-spinner,
+.nb-button-spinner {
+  display: inline-block;
+  border-radius: 50%;
+  animation: nb-spin 0.75s linear infinite;
+}
+
+.nb-loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 5px solid #ffe1cc;
+  border-top-color: var(--nb-orange);
+}
+
+.nb-button-spinner {
+  width: 17px;
+  height: 17px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #ffffff;
+}
+
+@keyframes nb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (max-width: 767.98px) {
   .nb-form-shell {
     min-height: calc(100vh - 130px);
@@ -518,5 +586,12 @@ body {
   .nb-login-options {
     align-items: stretch;
     flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nb-loading-spinner,
+  .nb-button-spinner {
+    animation-duration: 1.5s;
   }
 }

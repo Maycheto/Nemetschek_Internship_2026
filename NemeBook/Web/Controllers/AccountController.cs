@@ -127,7 +127,8 @@ public class AccountController : Controller
             return View(request);
         }
 
-        return View("ChangePasswordWaiting");
+        TempData["SuccessMessage"] = "Изпратихме линк за възстановяване на паролата.";
+        return RedirectToAction(nameof(Login));
     }
 
     [HttpGet]
