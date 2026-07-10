@@ -1,81 +1,182 @@
+@using System.ComponentModel.DataAnnotations
+@using Entities.Enums
+
 @{
-    ViewData["Title"] = "Home Page";
+    var isPrincipal = User.IsInRole("Principal");
+    var principalDisplayName = typeof(UserRole)
+        .GetMember(nameof(UserRole.Principal))[0]
+        .GetCustomAttributes(typeof(DisplayAttribute), false)
+        .Cast<DisplayAttribute>()
+        .FirstOrDefault()
+        ?.GetName() ?? nameof(UserRole.Principal);
+
+    Layout = isPrincipal ? null : "_Layout";
+    ViewData["Title"] = "Начало";
 }
 
-<style>
-    .nb-home {
-        min-height: calc(100vh - 160px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 24px 0 48px;
-    }
-
-    .nb-home-panel {
-        width: 100%;
-        max-width: 760px;
-        border: 1px solid #ebecef;
-        border-radius: 20px;
-        background: #ffffff;
-        box-shadow: 0 12px 42px rgba(20, 25, 35, 0.1);
-        padding: 28px;
-        text-align: center;
-    }
-
-    .nb-home-title {
-        margin: 0 0 8px;
-        color: #25262b;
-        font-size: 38px;
-        font-weight: 800;
-    }
-
-    .nb-home-text {
-        margin: 0 auto 20px;
-        max-width: 560px;
-        color: #737a85;
-        font-size: 16px;
-    }
-
-    .nb-admin-actions {
-        display: flex;
-        justify-content: center;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
-
-    .nb-admin-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        min-height: 44px;
-        padding: 0 18px;
-        border-radius: 11px;
-        background: #f37021;
-        color: #ffffff;
-        font-weight: 700;
-        text-decoration: none;
-    }
-
-    .nb-admin-btn:hover {
-        background: #d95f16;
-        color: #ffffff;
-    }
-</style>
-
-<div class="nb-home">
-    <section class="nb-home-panel">
-        <h1 class="nb-home-title">Welcome to NemeBook</h1>
-        <p class="nb-home-text">Manage school information, profiles and communication from one place.</p>
-
-        @if (User.IsInRole("Principal"))
-        {
-            <div class="nb-admin-actions">
-                <a class="nb-admin-btn" asp-controller="ProfileImport" asp-action="Index">
-                    <i class="bi bi-file-earmark-spreadsheet"></i>
-                    Import profiles
+@if (isPrincipal)
+{
+    <!DOCTYPE html>
+    <html lang="bg">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Начало - NemeBook</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+        <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    </head>
+    <body class="nb-principal-body">
+        <div class="nb-principal-shell">
+            <aside class="nb-principal-sidebar" aria-label="Главна навигация">
+                <a class="nb-principal-logo" asp-controller="Home" asp-action="Index">
+                    <span class="nb-principal-logo-mark">
+                        <i class="bi bi-book-half" aria-hidden="true"></i>
+                    </span>
+                    <span>
+                        <strong>NemeBook</strong>
+                        <small>@principalDisplayName</small>
+                    </span>
                 </a>
-            </div>
-        }
-    </section>
-</div>
+
+                <nav class="nb-principal-nav">
+                    <a class="is-active" asp-controller="Home" asp-action="Index">
+                        <i class="bi bi-house-fill" aria-hidden="true"></i>
+                        <span>Начало</span>
+                    </a>
+                    <a href="#">
+                        <i class="bi bi-newspaper" aria-hidden="true"></i>
+                        <span>Новини</span>
+                    </a>
+                    <a asp-controller="Grade" asp-action="AllClasses">
+                        <i class="bi bi-grid-3x3-gap-fill" aria-hidden="true"></i>
+                        <span>Класове</span>
+                    </a>
+                    <a asp-controller="Chat" asp-action="Index">
+                        <i class="bi bi-chat-dots-fill" aria-hidden="true"></i>
+                        <span>Учителски чатове</span>
+                    </a>
+                </nav>
+
+                <a class="nb-principal-user-card" asp-controller="Account" asp-action="Profile">
+                    <span class="nb-principal-user-avatar"></span>
+                    <span>
+                        <strong>@(User.FindFirst("FullName")?.Value ?? "Директор")</strong>
+                        <small>Директорски профил</small>
+                    </span>
+                </a>
+            </aside>
+
+            <main class="nb-principal-main">
+                <header class="nb-principal-topbar">
+                    <h1>Начало</h1>
+                    <div class="nb-principal-top-actions">
+                        <a class="nb-principal-action-btn" asp-controller="ProfileImport" asp-action="Index">
+                            <span>Импорт на профили</span>
+                            <i class="bi bi-upload" aria-hidden="true"></i>
+                        </a>
+                        <form asp-action="Logout" asp-controller="Account" method="post">
+                            @Html.AntiForgeryToken()
+                            <button class="nb-principal-action-btn is-logout" type="submit">
+                                <span>Изход</span>
+                                <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                            </button>
+                        </form>
+                    </div>
+                </header>
+
+                <section class="nb-principal-content" aria-label="Директорски панел">
+                    <div class="nb-principal-summary">
+                        <article class="nb-principal-average-card">
+                            <span>Среден успех на училището</span>
+                            <strong>5.43</strong>
+                            <a asp-controller="Grade" asp-action="AllClasses">Виж всички класове <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                            <span class="nb-principal-average-dot" aria-hidden="true"></span>
+                        </article>
+
+                        <article class="nb-principal-card nb-principal-insights">
+                            <h2>Справки</h2>
+                            <a class="nb-principal-insight-row is-purple" href="#">
+                                <span class="nb-principal-row-icon"></span>
+                                <span>Академично представяне</span>
+                                <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                            </a>
+                            <a class="nb-principal-insight-row is-blue" href="#">
+                                <span class="nb-principal-row-icon"></span>
+                                <span>Посещаемост</span>
+                                <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                            </a>
+                            <a class="nb-principal-insight-row is-green" href="#">
+                                <span class="nb-principal-row-icon"></span>
+                                <span>Дисциплина</span>
+                                <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                            </a>
+                            <a class="nb-principal-insight-row is-orange" href="#">
+                                <span class="nb-principal-row-icon"></span>
+                                <span>Участие</span>
+                                <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                            </a>
+                        </article>
+
+                        <article class="nb-principal-card nb-principal-attention">
+                            <h2>Изисква внимание</h2>
+                            <div class="nb-principal-attention-row">
+                                <strong>9Б</strong>
+                                <span></span>
+                                <em class="is-red">4.02</em>
+                            </div>
+                            <div class="nb-principal-attention-row">
+                                <strong>8А</strong>
+                                <span></span>
+                                <em>4.21</em>
+                            </div>
+                            <div class="nb-principal-attention-row">
+                                <strong>11А</strong>
+                                <span></span>
+                                <em>4.35</em>
+                            </div>
+                        </article>
+                    </div>
+
+                    <section class="nb-principal-card nb-principal-chart-card">
+                        <div class="nb-principal-chart-header">
+                            <h2>Разпределение на оценките</h2>
+                        </div>
+
+                        <div class="nb-principal-chart" aria-label="Разпределение по оценки">
+                            <div class="nb-principal-bar-item">
+                                <span class="nb-principal-bar is-grade-2" style="height: 22px"></span>
+                                <small>Слаб 2</small>
+                            </div>
+                            <div class="nb-principal-bar-item">
+                                <span class="nb-principal-bar is-grade-3" style="height: 52px"></span>
+                                <small>Среден 3</small>
+                            </div>
+                            <div class="nb-principal-bar-item">
+                                <span class="nb-principal-bar is-grade-4" style="height: 92px"></span>
+                                <small>Добър 4</small>
+                            </div>
+                            <div class="nb-principal-bar-item">
+                                <span class="nb-principal-bar is-grade-5" style="height: 128px"></span>
+                                <small>Много добър 5</small>
+                            </div>
+                            <div class="nb-principal-bar-item">
+                                <span class="nb-principal-bar is-grade-6" style="height: 60px"></span>
+                                <small>Отличен 6</small>
+                            </div>
+                        </div>
+                    </section>
+                </section>
+            </main>
+        </div>
+    </body>
+    </html>
+}
+else
+{
+    <div class="nb-home">
+        <section class="nb-home-panel">
+            <h1 class="nb-home-title">Добре дошли в NemeBook</h1>
+            <p class="nb-home-text">Следете оценки, съобщения и училищна информация от едно място.</p>
+        </section>
+    </div>
+}
