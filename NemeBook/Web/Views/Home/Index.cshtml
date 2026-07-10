@@ -1,5 +1,6 @@
 @using System.ComponentModel.DataAnnotations
 @using Entities.Enums
+@model Web.ViewModels.PrincipalHomeViewModel
 
 @{
     var isPrincipal = User.IsInRole("Principal");
@@ -88,52 +89,39 @@
                     <div class="nb-principal-summary">
                         <article class="nb-principal-average-card">
                             <span>Среден успех на училището</span>
-                            <strong>5.43</strong>
-                            <a asp-controller="Grade" asp-action="AllClasses">Виж всички класове <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
-                            <span class="nb-principal-average-dot" aria-hidden="true"></span>
+                            @if (Model.SchoolAverageGrade.HasValue)
+                            {
+                                <strong>@Model.SchoolAverageGrade.Value.ToString("0.00")</strong>
+                                <a asp-controller="Grade" asp-action="AllClasses">Виж всички класове <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+                                <span class="nb-principal-average-dot" aria-hidden="true"></span>
+                            }
                         </article>
 
                         <article class="nb-principal-card nb-principal-insights">
                             <h2>Справки</h2>
-                            <a class="nb-principal-insight-row is-purple" href="#">
-                                <span class="nb-principal-row-icon"></span>
-                                <span>Академично представяне</span>
-                                <i class="bi bi-chevron-right" aria-hidden="true"></i>
-                            </a>
-                            <a class="nb-principal-insight-row is-blue" href="#">
-                                <span class="nb-principal-row-icon"></span>
-                                <span>Посещаемост</span>
-                                <i class="bi bi-chevron-right" aria-hidden="true"></i>
-                            </a>
-                            <a class="nb-principal-insight-row is-green" href="#">
-                                <span class="nb-principal-row-icon"></span>
-                                <span>Дисциплина</span>
-                                <i class="bi bi-chevron-right" aria-hidden="true"></i>
-                            </a>
-                            <a class="nb-principal-insight-row is-orange" href="#">
-                                <span class="nb-principal-row-icon"></span>
-                                <span>Участие</span>
-                                <i class="bi bi-chevron-right" aria-hidden="true"></i>
-                            </a>
+                            @foreach (var report in Model.Reports)
+                            {
+                                <a class="nb-principal-insight-row @report.CssClass" href="#">
+                                    <span class="nb-principal-row-icon"></span>
+                                    <span>@report.Label</span>
+                                    <em>@report.Value</em>
+                                    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                                </a>
+                            }
                         </article>
 
                         <article class="nb-principal-card nb-principal-attention">
                             <h2>Изисква внимание</h2>
-                            <div class="nb-principal-attention-row">
-                                <strong>9Б</strong>
-                                <span></span>
-                                <em class="is-red">4.02</em>
-                            </div>
-                            <div class="nb-principal-attention-row">
-                                <strong>8А</strong>
-                                <span></span>
-                                <em>4.21</em>
-                            </div>
-                            <div class="nb-principal-attention-row">
-                                <strong>11А</strong>
-                                <span></span>
-                                <em>4.35</em>
-                            </div>
+                            @foreach (var schoolClass in Model.ClassesNeedingAttention)
+                            {
+                                <div class="nb-principal-attention-row">
+                                    <strong>@schoolClass.ClassName</strong>
+                                    <span></span>
+                                    <em class="@(schoolClass.AverageGrade < 4.50m ? "is-red" : null)">
+                                        @schoolClass.AverageGrade.ToString("0.00")
+                                    </em>
+                                </div>
+                            }
                         </article>
                     </div>
 
@@ -143,26 +131,13 @@
                         </div>
 
                         <div class="nb-principal-chart" aria-label="Разпределение по оценки">
-                            <div class="nb-principal-bar-item">
-                                <span class="nb-principal-bar is-grade-2" style="height: 22px"></span>
-                                <small>Слаб 2</small>
-                            </div>
-                            <div class="nb-principal-bar-item">
-                                <span class="nb-principal-bar is-grade-3" style="height: 52px"></span>
-                                <small>Среден 3</small>
-                            </div>
-                            <div class="nb-principal-bar-item">
-                                <span class="nb-principal-bar is-grade-4" style="height: 92px"></span>
-                                <small>Добър 4</small>
-                            </div>
-                            <div class="nb-principal-bar-item">
-                                <span class="nb-principal-bar is-grade-5" style="height: 128px"></span>
-                                <small>Много добър 5</small>
-                            </div>
-                            <div class="nb-principal-bar-item">
-                                <span class="nb-principal-bar is-grade-6" style="height: 60px"></span>
-                                <small>Отличен 6</small>
-                            </div>
+                            @foreach (var item in Model.GradeDistribution)
+                            {
+                                <div class="nb-principal-bar-item">
+                                    <span class="nb-principal-bar is-grade-@item.Grade" style="height: @item.BarHeight.ToString()px"></span>
+                                    <small>@GetGradeLabel(item.Grade) (@item.Count)</small>
+                                </div>
+                            }
                         </div>
                     </section>
                 </section>
@@ -179,4 +154,19 @@ else
             <p class="nb-home-text">Следете оценки, съобщения и училищна информация от едно място.</p>
         </section>
     </div>
+}
+
+@functions {
+    private static string GetGradeLabel(int grade)
+    {
+        return grade switch
+        {
+            2 => "Слаб 2",
+            3 => "Среден 3",
+            4 => "Добър 4",
+            5 => "Много добър 5",
+            6 => "Отличен 6",
+            _ => grade.ToString(),
+        };
+    }
 }

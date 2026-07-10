@@ -331,6 +331,11 @@ body {
   gap: 24px;
 }
 
+.nb-principal-summary > .nb-principal-average-card,
+.nb-principal-summary > .nb-principal-card {
+  height: 230px;
+}
+
 .nb-principal-average-card,
 .nb-principal-card {
   border-radius: 16px;
@@ -339,7 +344,6 @@ body {
 
 .nb-principal-average-card {
   position: relative;
-  min-height: 144px;
   padding: 22px 26px;
   overflow: hidden;
   background: linear-gradient(135deg, #ff7417 0%, #f25705 100%);
@@ -405,12 +409,13 @@ body {
 .nb-principal-insights {
   display: grid;
   gap: 7px;
+  grid-template-rows: auto repeat(4, 36px);
 }
 
 .nb-principal-insight-row {
   min-height: 36px;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 12px;
   padding: 0 12px;
@@ -420,6 +425,15 @@ body {
   font-size: 13px;
   font-weight: 900;
   text-decoration: none;
+}
+
+.nb-principal-insight-row em {
+  min-width: 42px;
+  color: currentColor;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+  text-align: right;
 }
 
 .nb-principal-insight-row:hover {
@@ -467,6 +481,7 @@ body {
 .nb-principal-attention {
   display: grid;
   gap: 12px;
+  grid-template-rows: auto repeat(3, 26px);
 }
 
 .nb-principal-attention-row {
@@ -512,6 +527,7 @@ body {
 
 .nb-principal-chart-card {
   margin-top: 20px;
+  height: 320px;
   padding: 20px 24px 18px;
 }
 
@@ -523,7 +539,7 @@ body {
 }
 
 .nb-principal-chart {
-  height: 160px;
+  height: 248px;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: end;
@@ -1286,6 +1302,11 @@ body {
     gap: 16px;
   }
 
+  .nb-principal-summary > .nb-principal-average-card,
+  .nb-principal-summary > .nb-principal-card {
+    height: auto;
+  }
+
   .nb-principal-average-card {
     min-height: 150px;
     padding: 24px;
@@ -1298,6 +1319,10 @@ body {
   .nb-principal-chart-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .nb-principal-chart-card {
+    height: auto;
   }
 
   .nb-principal-chart {
