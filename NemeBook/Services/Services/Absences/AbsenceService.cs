@@ -165,6 +165,28 @@ public class AbsenceService : IAbsenceService
         return allAbsences.Where(a => a.StudentId == studentId).ToList();
     }
 
+    public async Task<IReadOnlyList<Absence>> GetByClassAsync(Guid classId, CancellationToken cancellationToken = default)
+    {
+        if (classId == Guid.Empty)
+            throw new ArgumentException("Class id cannot be empty.", nameof(classId));
+
+        // Absence няма директна връзка към Class, само към Student (който има ClassId),
+        // затова кръстосваме двете колекции тук. Пак чрез GetAllAsync - същият компромис
+        // заради базовия CRUD интерфейс на repository-тата (виж бележката най-горе).
+        var allStudents = await _studentRepository.GetAllAsync(cancellationToken);
+        var studentIdsInClass = allStudents
+            .Where(s => s.ClassId == classId)
+            .Select(s => s.Id)
+            .ToHashSet();
+
+        if (studentIdsInClass.Count == 0)
+            return Array.Empty<Absence>();
+
+        var allAbsences = await _absenceRepository.GetAllAsync(cancellationToken);
+
+        return allAbsences.Where(a => studentIdsInClass.Contains(a.StudentId)).ToList();
+    }
+
     private async Task<bool> IsMainClassTeacherAsync(Guid teacherId, Guid classId, CancellationToken cancellationToken)
     {
         var teacher = await _teacherRepository.GetByIdAsync(teacherId, cancellationToken);
