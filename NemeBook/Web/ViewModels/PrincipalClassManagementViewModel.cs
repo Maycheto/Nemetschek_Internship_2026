@@ -16,7 +16,31 @@ public class PrincipalClassManagementViewModel
 
     public string? MainTeacherName { get; set; }
 
+    public List<PrincipalClassSubjectViewModel> ClassSubjects { get; set; } = new List<PrincipalClassSubjectViewModel>();
+
+    public List<PrincipalSubjectOptionViewModel> SubjectOptions { get; set; } = new List<PrincipalSubjectOptionViewModel>();
+
     public List<PrincipalClassStudentViewModel> Students { get; set; } = new List<PrincipalClassStudentViewModel>();
+}
+
+public class PrincipalClassSubjectViewModel
+{
+    public Guid ClassSubjectId { get; set; }
+
+    public Guid SubjectId { get; set; }
+
+    public string SubjectName { get; set; } = string.Empty;
+
+    public Guid? TeacherId { get; set; }
+
+    public string? TeacherName { get; set; }
+}
+
+public class PrincipalSubjectOptionViewModel
+{
+    public Guid Id { get; set; }
+
+    public string Name { get; set; } = string.Empty;
 }
 
 public class PrincipalClassStudentViewModel

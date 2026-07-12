@@ -1,5 +1,6 @@
 using Data;
 using Entities.Enums;
+using Entities.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -73,22 +74,27 @@ public class ClassManagementController : Controller
     [HttpGet]
     public async Task<IActionResult> SearchStudentMatches(string? query, CancellationToken cancellationToken = default)
     {
-        var normalizedQuery = string.IsNullOrWhiteSpace(query)
-            ? string.Empty
-            : query.Trim();
+        var searchTerms = GetSearchTerms(query);
 
-        if (normalizedQuery.Length < 2)
+        if (searchTerms.Length == 0)
         {
             return Json(Array.Empty<object>());
         }
 
-        var studentRows = await dbContext.Students
+        var studentsQuery = dbContext.Students
             .AsNoTracking()
-            .Where(student =>
-                student.User.IsActive &&
-                (student.User.FirstName.Contains(normalizedQuery) ||
-                 (student.User.MiddleName != null && student.User.MiddleName.Contains(normalizedQuery)) ||
-                 student.User.LastName.Contains(normalizedQuery)))
+            .Where(student => student.User.IsActive);
+
+        foreach (var searchTerm in searchTerms)
+        {
+            var currentTerm = searchTerm;
+            studentsQuery = studentsQuery.Where(student =>
+                student.User.FirstName.Contains(currentTerm) ||
+                (student.User.MiddleName != null && student.User.MiddleName.Contains(currentTerm)) ||
+                student.User.LastName.Contains(currentTerm));
+        }
+
+        var studentRows = await studentsQuery
             .OrderBy(student => student.User.FirstName)
             .ThenBy(student => student.User.MiddleName)
             .ThenBy(student => student.User.LastName)
@@ -117,22 +123,74 @@ public class ClassManagementController : Controller
     [HttpGet]
     public async Task<IActionResult> SearchTeacherMatches(string? query, CancellationToken cancellationToken = default)
     {
-        var normalizedQuery = string.IsNullOrWhiteSpace(query)
-            ? string.Empty
-            : query.Trim();
+        var searchTerms = GetSearchTerms(query);
 
-        if (normalizedQuery.Length < 2)
+        if (searchTerms.Length == 0)
         {
             return Json(Array.Empty<object>());
         }
 
-        var teacherRows = await dbContext.Teachers
+        var teachersQuery = dbContext.Teachers
+            .AsNoTracking()
+            .Where(teacher => teacher.User.IsActive);
+
+        foreach (var searchTerm in searchTerms)
+        {
+            var currentTerm = searchTerm;
+            teachersQuery = teachersQuery.Where(teacher =>
+                teacher.User.FirstName.Contains(currentTerm) ||
+                (teacher.User.MiddleName != null && teacher.User.MiddleName.Contains(currentTerm)) ||
+                teacher.User.LastName.Contains(currentTerm));
+        }
+
+        var teacherRows = await teachersQuery
+            .OrderBy(teacher => teacher.User.FirstName)
+            .ThenBy(teacher => teacher.User.MiddleName)
+            .ThenBy(teacher => teacher.User.LastName)
+            .Select(teacher => new
+            {
+                teacher.Id,
+                teacher.User.FirstName,
+                teacher.User.MiddleName,
+                teacher.User.LastName,
+            })
+            .Take(20)
+            .ToListAsync(cancellationToken);
+
+        var results = teacherRows.Select(teacher => new
+        {
+            id = teacher.Id,
+            fullName = FormatFullName(teacher.FirstName, teacher.MiddleName, teacher.LastName),
+        });
+
+        return Json(results);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> SearchClassSubjectTeacherMatches(
+        Guid subjectId,
+        string? query,
+        bool includeAllTeachers = false,
+        CancellationToken cancellationToken = default)
+    {
+        var searchTerms = GetSearchTerms(query);
+
+        var teachersQuery = dbContext.Teachers
             .AsNoTracking()
             .Where(teacher =>
                 teacher.User.IsActive &&
-                (teacher.User.FirstName.Contains(normalizedQuery) ||
-                 (teacher.User.MiddleName != null && teacher.User.MiddleName.Contains(normalizedQuery)) ||
-                 teacher.User.LastName.Contains(normalizedQuery)))
+                (includeAllTeachers || teacher.TeacherSubjects.Any(teacherSubject => teacherSubject.SubjectId == subjectId)));
+
+        foreach (var searchTerm in searchTerms)
+        {
+            var currentTerm = searchTerm;
+            teachersQuery = teachersQuery.Where(teacher =>
+                teacher.User.FirstName.Contains(currentTerm) ||
+                (teacher.User.MiddleName != null && teacher.User.MiddleName.Contains(currentTerm)) ||
+                teacher.User.LastName.Contains(currentTerm));
+        }
+
+        var teacherRows = await teachersQuery
             .OrderBy(teacher => teacher.User.FirstName)
             .ThenBy(teacher => teacher.User.MiddleName)
             .ThenBy(teacher => teacher.User.LastName)
@@ -205,7 +263,219 @@ public class ClassManagementController : Controller
     [HttpGet]
     public async Task<IActionResult> Subjects(Guid classId, CancellationToken cancellationToken = default)
     {
-        return await PlaceholderAsync(classId, "Subjects", "Предмети", cancellationToken);
+        var viewModel = await BuildClassManagementViewModelAsync(
+            classId,
+            "Subjects",
+            "Предмети",
+            cancellationToken);
+
+        if (viewModel is null)
+        {
+            return NotFound();
+        }
+
+        var classSubjectRows = await dbContext.ClassSubjects
+            .AsNoTracking()
+            .Where(classSubject => classSubject.ClassId == classId)
+            .OrderBy(classSubject => classSubject.Subject.Name)
+            .Select(classSubject => new
+            {
+                classSubject.Id,
+                classSubject.SubjectId,
+                SubjectName = classSubject.Subject.Name,
+                classSubject.TeacherId,
+                TeacherFirstName = classSubject.Teacher == null ? null : classSubject.Teacher.User.FirstName,
+                TeacherMiddleName = classSubject.Teacher == null ? null : classSubject.Teacher.User.MiddleName,
+                TeacherLastName = classSubject.Teacher == null ? null : classSubject.Teacher.User.LastName,
+            })
+            .ToListAsync(cancellationToken);
+
+        viewModel.ClassSubjects = classSubjectRows
+            .Select(classSubject => new PrincipalClassSubjectViewModel
+            {
+                ClassSubjectId = classSubject.Id,
+                SubjectId = classSubject.SubjectId,
+                SubjectName = classSubject.SubjectName,
+                TeacherId = classSubject.TeacherId,
+                TeacherName = classSubject.TeacherFirstName is null || classSubject.TeacherLastName is null
+                    ? null
+                    : FormatFullName(
+                        classSubject.TeacherFirstName,
+                        classSubject.TeacherMiddleName,
+                        classSubject.TeacherLastName),
+            })
+            .ToList();
+
+        var addedSubjectIds = viewModel.ClassSubjects
+            .Select(classSubject => classSubject.SubjectId)
+            .ToList();
+
+        viewModel.SubjectOptions = await dbContext.Subjects
+            .AsNoTracking()
+            .Where(subject => !addedSubjectIds.Contains(subject.Id))
+            .OrderBy(subject => subject.Name)
+            .Select(subject => new PrincipalSubjectOptionViewModel
+            {
+                Id = subject.Id,
+                Name = subject.Name,
+            })
+            .ToListAsync(cancellationToken);
+
+        return View(viewModel);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateSubject(string name, CancellationToken cancellationToken = default)
+    {
+        var normalizedName = string.IsNullOrWhiteSpace(name)
+            ? string.Empty
+            : name.Trim();
+
+        if (string.IsNullOrWhiteSpace(normalizedName))
+        {
+            return BadRequest();
+        }
+
+        var existingSubject = await dbContext.Subjects
+            .FirstOrDefaultAsync(subject => subject.Name == normalizedName, cancellationToken);
+
+        if (existingSubject is not null)
+        {
+            return Json(new
+            {
+                id = existingSubject.Id,
+                name = existingSubject.Name,
+            });
+        }
+
+        var subject = new Subject
+        {
+            Id = Guid.NewGuid(),
+            Name = normalizedName,
+        };
+
+        dbContext.Subjects.Add(subject);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return Json(new
+        {
+            id = subject.Id,
+            name = subject.Name,
+        });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddClassSubject(
+        Guid classId,
+        Guid subjectId,
+        Guid teacherId,
+        CancellationToken cancellationToken = default)
+    {
+        var classExists = await dbContext.Classes
+            .AnyAsync(schoolClass => schoolClass.Id == classId, cancellationToken);
+
+        if (!classExists)
+        {
+            return NotFound();
+        }
+
+        var subjectExists = await dbContext.Subjects
+            .AnyAsync(subject => subject.Id == subjectId, cancellationToken);
+
+        var teacherExists = await dbContext.Teachers
+            .AnyAsync(
+                teacher =>
+                    teacher.Id == teacherId &&
+                    teacher.User.IsActive,
+                cancellationToken);
+
+        if (!subjectExists || !teacherExists)
+        {
+            return RedirectToAction(nameof(Subjects), new { classId });
+        }
+
+        var existingClassSubject = await dbContext.ClassSubjects
+            .FirstOrDefaultAsync(
+                classSubject =>
+                    classSubject.ClassId == classId &&
+                    classSubject.SubjectId == subjectId,
+                cancellationToken);
+
+        if (existingClassSubject is null)
+        {
+            dbContext.ClassSubjects.Add(new ClassSubject
+            {
+                Id = Guid.NewGuid(),
+                ClassId = classId,
+                SubjectId = subjectId,
+                TeacherId = teacherId,
+            });
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return RedirectToAction(nameof(Subjects), new { classId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateClassSubjectTeacher(
+        Guid classId,
+        Guid classSubjectId,
+        Guid teacherId,
+        CancellationToken cancellationToken = default)
+    {
+        var classSubject = await dbContext.ClassSubjects
+            .FirstOrDefaultAsync(
+                currentClassSubject =>
+                    currentClassSubject.Id == classSubjectId &&
+                    currentClassSubject.ClassId == classId,
+                cancellationToken);
+
+        if (classSubject is null)
+        {
+            return NotFound();
+        }
+
+        var teacherExists = await dbContext.Teachers
+            .AnyAsync(
+                teacher =>
+                    teacher.Id == teacherId &&
+                    teacher.User.IsActive,
+                cancellationToken);
+
+        if (teacherExists)
+        {
+            classSubject.TeacherId = teacherId;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return RedirectToAction(nameof(Subjects), new { classId });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteClassSubject(
+        Guid classId,
+        Guid classSubjectId,
+        CancellationToken cancellationToken = default)
+    {
+        var classSubject = await dbContext.ClassSubjects
+            .FirstOrDefaultAsync(
+                currentClassSubject =>
+                    currentClassSubject.Id == classSubjectId &&
+                    currentClassSubject.ClassId == classId,
+                cancellationToken);
+
+        if (classSubject is not null)
+        {
+            dbContext.ClassSubjects.Remove(classSubject);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return RedirectToAction(nameof(Subjects), new { classId });
     }
 
     [HttpGet]
@@ -289,5 +559,14 @@ public class ClassManagementController : Controller
             " ",
             new[] { firstName, middleName, lastName }
                 .Where(name => !string.IsNullOrWhiteSpace(name)));
+    }
+
+    private static string[] GetSearchTerms(string? query)
+    {
+        return string.IsNullOrWhiteSpace(query)
+            ? Array.Empty<string>()
+            : query.Trim().Split(
+                new[] { ' ', '\t', '\r', '\n' },
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 }
