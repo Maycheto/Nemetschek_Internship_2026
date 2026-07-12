@@ -6,11 +6,15 @@ public class PrincipalClassManagementViewModel
 
     public string ClassName { get; set; } = string.Empty;
 
-    public string ActiveTab { get; set; } = "Students";
+    public string ActiveTab { get; set; } = "Class";
 
-    public string SectionTitle { get; set; } = "Ученици";
+    public string SectionTitle { get; set; } = "Клас";
 
     public string? EmptyMessage { get; set; }
+
+    public Guid? MainTeacherId { get; set; }
+
+    public string? MainTeacherName { get; set; }
 
     public List<PrincipalClassStudentViewModel> Students { get; set; } = new List<PrincipalClassStudentViewModel>();
 }

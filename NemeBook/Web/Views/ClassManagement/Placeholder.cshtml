@@ -71,11 +71,8 @@
         <main class="nb-principal-main">
             <header class="nb-principal-topbar">
                 <h1>Клас @Model.ClassName</h1>
+                <partial name="_PrincipalStudentSearch" />
                 <div class="nb-principal-top-actions">
-                    <a class="nb-principal-action-btn" asp-controller="Grade" asp-action="AllClasses" asp-route-grade="@GetGradeNumber(Model.ClassName)">
-                        <span>Всички класове</span>
-                        <i class="bi bi-arrow-left" aria-hidden="true"></i>
-                    </a>
                     <form asp-action="Logout" asp-controller="Account" method="post">
                         @Html.AntiForgeryToken()
                         <button class="nb-principal-action-btn is-logout" type="submit">
@@ -87,12 +84,18 @@
             </header>
 
             <section class="nb-principal-content nb-class-management-content" aria-label="Управление на клас">
-                <nav class="nb-class-management-tabs" aria-label="Секции на класа">
-                    <a class="@GetTabClass("Students")" asp-controller="ClassManagement" asp-action="Students" asp-route-classId="@Model.ClassId">Ученици</a>
-                    <a class="@GetTabClass("Subjects")" asp-controller="ClassManagement" asp-action="Subjects" asp-route-classId="@Model.ClassId">Предмети</a>
-                    <a class="@GetTabClass("Schedule")" asp-controller="ClassManagement" asp-action="Schedule" asp-route-classId="@Model.ClassId">Програма</a>
-                    <a class="@GetTabClass("Events")" asp-controller="ClassManagement" asp-action="Events" asp-route-classId="@Model.ClassId">Събития</a>
-                </nav>
+                <div class="nb-class-management-tabs-row">
+                    <nav class="nb-class-management-tabs" aria-label="Секции на класа">
+                        <a class="@GetTabClass("Class")" asp-controller="ClassManagement" asp-action="Students" asp-route-classId="@Model.ClassId">Клас</a>
+                        <a class="@GetTabClass("Subjects")" asp-controller="ClassManagement" asp-action="Subjects" asp-route-classId="@Model.ClassId">Предмети</a>
+                        <a class="@GetTabClass("Schedule")" asp-controller="ClassManagement" asp-action="Schedule" asp-route-classId="@Model.ClassId">Програма</a>
+                        <a class="@GetTabClass("Events")" asp-controller="ClassManagement" asp-action="Events" asp-route-classId="@Model.ClassId">Събития</a>
+                    </nav>
+                    <a class="nb-principal-action-btn nb-class-back-btn" asp-controller="Grade" asp-action="AllClasses" asp-route-grade="@GetGradeNumber(Model.ClassName)">
+                        <span>Всички класове</span>
+                        <i class="bi bi-arrow-left" aria-hidden="true"></i>
+                    </a>
+                </div>
 
                 <section class="nb-class-students-panel nb-class-placeholder-panel" aria-labelledby="class-section-title">
                     <div class="nb-class-section-header">

@@ -71,6 +71,7 @@
         <main class="nb-principal-main">
             <header class="nb-principal-topbar">
                 <h1>Импорт на профили</h1>
+                <partial name="_PrincipalStudentSearch" />
                 <div class="nb-principal-top-actions">
                     <form asp-action="Logout" asp-controller="Account" method="post">
                         @Html.AntiForgeryToken()
