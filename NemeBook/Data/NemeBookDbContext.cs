@@ -168,11 +168,11 @@ public class NemeBookDbContext : DbContext
         modelBuilder.Entity<ClassScheduleEntry>(entity =>
         {
             entity.HasIndex(scheduleEntry => new
-                {
-                    scheduleEntry.ClassId,
-                    scheduleEntry.DayOfWeek,
-                    scheduleEntry.PeriodNumber
-                })
+            {
+                scheduleEntry.ClassId,
+                scheduleEntry.DayOfWeek,
+                scheduleEntry.PeriodNumber
+            })
                 .IsUnique();
 
             entity.HasOne(scheduleEntry => scheduleEntry.Class)
@@ -211,6 +211,11 @@ public class NemeBookDbContext : DbContext
     {
         modelBuilder.Entity<Absence>(entity =>
         {
+            // ДОБАВЕНО: съответства на новото Absence.IsDeleted (soft delete от администрация, т.8)
+            // + огледален filter на Student.User.IsDeleted, за да не гърми EF Core 10622
+            // warning-а за задължителна връзка с изтрит User -> Student -> Absence.
+            entity.HasQueryFilter(absence => !absence.IsDeleted && !absence.Student.User.IsDeleted);
+
             entity.Property(absence => absence.ExcuseNote).HasMaxLength(1000);
             entity.Property(absence => absence.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
             entity.Property(absence => absence.Date).HasColumnType("date");
