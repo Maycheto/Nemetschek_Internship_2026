@@ -330,13 +330,9 @@ public class ChatService : IChatService
             .Select(classSubject => classSubject.TeacherId!.Value)
             .ToHashSet();
 
-        var mainTeacherId = classes
-            .FirstOrDefault(currentClass => currentClass.Id == student.ClassId)
-            ?.MainTeacherId;
-
-        if (mainTeacherId.HasValue)
+        if (chat.Users.All(user => user.Id != userId))
         {
-            classTeacherIds.Add(mainTeacherId.Value);
+            throw new UnauthorizedAccessException("User is not part of this chat.");
         }
 
         return classTeacherIds
@@ -410,36 +406,33 @@ public class ChatService : IChatService
                      .Where(currentClass => currentClass.MainTeacherId == teacher.Id)
                      .Select(currentClass => currentClass.Id))
         {
-            classIds.Add(classId);
+            throw new UnauthorizedAccessException("Custom group chats are disabled.");
         }
 
-        var studentUserIds = students
-            .Where(student => classIds.Contains(student.ClassId))
-            .Select(student => student.UserId)
-            .ToHashSet();
-
-        var parentUserIds = parents
-            .Where(parent => parent.Students.Any(student => classIds.Contains(student.ClassId)))
-            .Select(parent => parent.UserId)
-            .ToHashSet();
-
-        foreach (var parentUserId in parentUserIds)
+        if (!CanUserSeeChat(requester, chat))
         {
-            studentUserIds.Add(parentUserId);
+            throw new UnauthorizedAccessException("User is not allowed to access this chat.");
         }
-
-        foreach (var principalId in principalIds)
-        {
-            studentUserIds.Add(principalId);
-        }
-
-        return studentUserIds;
     }
 
-    private static HashSet<Guid> GetAllowedForPrincipal(IReadOnlyList<User> users)
+    private static bool IsCustomGroupChat(Chat chat)
     {
+        return chat.Name?.StartsWith("GROUP:", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private static bool CanUserSeeChat(User requester, Chat chat)
+    {
+        return requester.Role != UserRole.Student || chat.Users.All(user => user.Role != UserRole.Principal);
+    }
+
+    private async Task<HashSet<Guid>> GetAllowedDirectContactIdsAsync(Guid requesterUserId, CancellationToken cancellationToken)
+    {
+        var users = await userRepository.GetAllAsync(cancellationToken);
         return users
-            .Where(user => user.Role is UserRole.Teacher or UserRole.Parent)
+            .Where(user => user.Id != requesterUserId)
+            .Where(user => !user.IsDeleted)
+            .Where(user => user.IsActive)
+            .Where(user => user.Role is UserRole.Student or UserRole.Teacher)
             .Select(user => user.Id)
             .ToHashSet();
     }
