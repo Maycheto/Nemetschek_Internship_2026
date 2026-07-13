@@ -251,6 +251,14 @@ public class ChatService : IChatService
         return message;
     }
 
+    public async Task<Chat> GetChatByIdAsync(Guid requesterUserId, Guid chatId, CancellationToken cancellationToken = default)
+    {
+        await EnsureUserCanAccessChatAsync(requesterUserId, chatId, cancellationToken);
+
+        return await chatRepository.GetByIdAsync(chatId, cancellationToken)
+            ?? throw new InvalidOperationException("Chat was not found.");
+    }
+
     private async Task<User> GetUserOrThrowAsync(Guid userId, CancellationToken cancellationToken)
     {
         if (userId == Guid.Empty)
