@@ -55,10 +55,10 @@
             .map(notification => {
                 const unreadClass = notification.isRead ? "" : "notification-item-unread";
                 return `
-                    <button type="button" class="dropdown-item notification-item ${unreadClass}" data-notification-id="${notification.id}">
+                    <li><button type="button" class="dropdown-item notification-item ${unreadClass}" data-notification-id="${notification.id}">
                         <div>${escapeHtml(notification.text || "")}</div>
                         <div class="notification-item-time">${escapeHtml(formatDate(notification.createdAt))}</div>
-                    </button>
+                    </button></li>
                 `;
             })
             .join("");
