@@ -819,7 +819,7 @@
 
             <nav class="nb-student-nav">
                 <a class="is-active" asp-controller="Student" asp-action="Index"><i class="bi bi-house-fill"></i><span>Начало</span></a>
-                <a asp-controller="Grade" asp-action="MyGrades"><i class="bi bi-journal-bookmark"></i><span>Оценки</span></a>
+                <a asp-controller="Student" asp-action="MyGrades"><i class="bi bi-journal-bookmark"></i><span>Оценки</span></a>
                 <a asp-controller="Chat" asp-action="Index"><i class="bi bi-chat-dots"></i><span>Чатове</span></a>
                 <a href="#" aria-disabled="true"><i class="bi bi-calendar3"></i><span>Календар</span></a>
                 <a asp-controller="Account" asp-action="Profile"><i class="bi bi-person"></i><span>Профил</span></a>
@@ -913,7 +913,7 @@
                     <article class="nb-timeline-card nb-grades-overview-card">
                         <div class="nb-card-heading">
                             <h2>Оценки</h2>
-                            <a class="nb-card-action" asp-controller="Grade" asp-action="MyGrades">
+                            <a class="nb-card-action" asp-controller="Student" asp-action="MyGrades">
                                 <span>Детайли</span>
                                 <i class="bi bi-arrow-right-short"></i>
                             </a>
@@ -926,7 +926,7 @@
                                 {
                                     var latestGrades = subject.Grades.Take(3).ToList();
 
-                                    <a class="nb-subject-grade-row" asp-controller="Grade" asp-action="MyGrades">
+                                    <a class="nb-subject-grade-row" asp-controller="Student" asp-action="MyGrades">
                                         <span class="nb-subject-dot" aria-hidden="true"></span>
                                         <div class="nb-subject-grade-name">
                                             <strong>@subject.SubjectName</strong>
@@ -953,7 +953,7 @@
                         }
                         else
                         {
-                            <a class="nb-empty-panel nb-empty-button" asp-controller="Grade" asp-action="MyGrades">
+                            <a class="nb-empty-panel nb-empty-button" asp-controller="Student" asp-action="MyGrades">
                                 Няма добавени предмети. Средният успех е 0.00.
                             </a>
                         }

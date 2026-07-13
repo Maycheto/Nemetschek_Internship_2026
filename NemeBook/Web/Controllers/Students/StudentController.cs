@@ -33,6 +33,24 @@ public class StudentController : Controller
         return View(viewModel);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> MyGrades(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        var viewModel = await studentHomeService.GetHomeAsync(userId.Value, cancellationToken);
+        if (viewModel is null)
+        {
+            return RedirectToAction("AccessDenied", "Account");
+        }
+
+        return View(viewModel);
+    }
+
     private Guid? GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
