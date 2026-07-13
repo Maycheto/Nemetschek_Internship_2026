@@ -45,7 +45,7 @@
 
     function renderNotifications() {
         if (!notifications.length) {
-            notificationsContainer.innerHTML = '<span class="dropdown-item-text text-muted small">Няма известия</span>';
+            notificationsContainer.innerHTML = '<li><span class="dropdown-item-text text-muted small">Няма известия</span></li>';
             updateBadge();
             return;
         }
