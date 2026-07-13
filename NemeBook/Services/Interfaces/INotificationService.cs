@@ -45,7 +45,6 @@ public interface INotificationService
     Task DeleteNotificationAsync(Guid notificationId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// <summary>
     /// Broadcasts a notification to multiple users
     /// </summary>
     Task BroadcastNotificationAsync(List<Guid> userIds, NotificationType type, string text, CancellationToken cancellationToken = default);
