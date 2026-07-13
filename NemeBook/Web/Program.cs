@@ -33,6 +33,7 @@ using Services.Services.Security;
 using Services.Services.Students;
 using Services.Services.Subjects;
 using Services.Services.Teachers;
+using Web.Hubs;
 using Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -115,6 +116,7 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
 builder.Services.AddScoped<IRegistrationService, RegistrationService>();
 builder.Services.AddScoped<IStudentService, StudentService>();
+builder.Services.AddScoped<IStudentHomeService, StudentHomeService>();
 
 builder.Services.Configure<RegistrationEmailOptions>(
     builder.Configuration.GetSection("RegistrationEmail"));
@@ -147,6 +149,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
 builder.Services.AddAuthorization();
 builder.Services.AddControllersWithViews();
+builder.Services.AddSignalR();
 
 builder.Services.AddSingleton<BackgroundEmailQueue>();
 builder.Services.AddSingleton<IBackgroundEmailQueue>(serviceProvider => serviceProvider.GetRequiredService<BackgroundEmailQueue>());
@@ -179,6 +182,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();
+app.MapHub<ChatHub>("/chatHub");
 
 app.MapControllerRoute(
         name: "default",
@@ -242,7 +246,7 @@ static async Task SeedDefaultUsersAsync(WebApplication app)
     await SeedUserBySectionAsync(app, "SeedTeacher", UserRole.Teacher, "TeacherSeeder");
     await SeedUserBySectionAsync(app, "SeedParent", UserRole.Parent, "ParentSeeder");
     await SeedUserBySectionAsync(app, "SeedStudent", UserRole.Student, "StudentSeeder");
-    await SeedBorisVelkovTeacherAsync(app);
+    await SeedGeorgiGeorgievStudentAsync(app);
 }
 
 static async Task SeedUserBySectionAsync(
@@ -287,15 +291,15 @@ static async Task SeedUserBySectionAsync(
         email);
 }
 
-static async Task SeedBorisVelkovTeacherAsync(WebApplication app)
+static async Task SeedGeorgiGeorgievStudentAsync(WebApplication app)
 {
-    const string email = "boris.velkov.highschool@buditel.bg";
+    const string email = "georgi.georgiev.highschool@buditel.bg";
     const string password = "BobE0000";
 
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<NemeBookDbContext>();
     var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("BorisVelkovSeeder");
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("GeorgiGeorgievStudentSeeder");
 
     var user = await dbContext.Users.FirstOrDefaultAsync(existingUser => existingUser.Email == email);
     if (user is null)
@@ -303,30 +307,30 @@ static async Task SeedBorisVelkovTeacherAsync(WebApplication app)
         user = new User
         {
             Id = Guid.NewGuid(),
-            FirstName = "Boris",
-            LastName = "Velkov",
+            FirstName = "Georgi",
+            LastName = "Georgiev",
             Email = email,
             Password = passwordHasher.HashPassword(password),
             IsActive = true,
-            Role = UserRole.Teacher
+            Role = UserRole.Student
         };
 
         await dbContext.Users.AddAsync(user);
         await dbContext.SaveChangesAsync();
 
-        logger.LogInformation("Boris Velkov seed completed. Created: true, UserId: {UserId}, Email: {Email}", user.Id, email);
+        logger.LogInformation("Georgi Georgiev student seed completed. Created: true, UserId: {UserId}, Email: {Email}", user.Id, email);
         return;
     }
 
-    user.FirstName = "Boris";
-    user.LastName = "Velkov";
+    user.FirstName = "Georgi";
+    user.LastName = "Georgiev";
     user.Email = email;
     user.Password = passwordHasher.HashPassword(password);
     user.IsActive = true;
-    user.Role = UserRole.Teacher;
+    user.Role = UserRole.Student;
     user.IsDeleted = false;
 
     await dbContext.SaveChangesAsync();
 
-    logger.LogInformation("Boris Velkov seed completed. Created: false, UserId: {UserId}, Email: {Email}", user.Id, email);
+    logger.LogInformation("Georgi Georgiev student seed completed. Created: false, UserId: {UserId}, Email: {Email}", user.Id, email);
 }

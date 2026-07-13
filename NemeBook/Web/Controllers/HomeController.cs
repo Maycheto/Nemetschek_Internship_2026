@@ -1,9 +1,11 @@
 using System.Diagnostics;
+using System.Security.Claims;
 using Data;
 using Entities.Enums;
 using Entities.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Services.Interfaces;
 using Web.ViewModels;
 
 namespace Web.Controllers;
@@ -13,17 +15,29 @@ public class HomeController : Controller
     private const int MaximumGradeBarHeight = 170;
     private const int MinimumGradeBarHeight = 18;
 
+    private readonly IAuthService _authService;
     private readonly ILogger<HomeController> _logger;
     private readonly NemeBookDbContext dbContext;
 
-    public HomeController(ILogger<HomeController> logger, NemeBookDbContext dbContext)
+    public HomeController(IAuthService authService, ILogger<HomeController> logger, NemeBookDbContext dbContext)
     {
+        _authService = authService;
         _logger = logger;
         this.dbContext = dbContext;
     }
 
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
+        var userId = GetCurrentUserId();
+        if (userId.HasValue)
+        {
+            var currentUser = await _authService.GetUserByIdAsync(userId.Value, cancellationToken);
+            if (currentUser?.Role == UserRole.Student)
+            {
+                return RedirectToAction("Index", "Student");
+            }
+        }
+
         var viewModel = User.IsInRole("Principal")
             ? await BuildPrincipalHomeViewModelAsync(cancellationToken)
             : new PrincipalHomeViewModel();
@@ -166,6 +180,17 @@ public class HomeController : Controller
 
         return MinimumGradeBarHeight + (int)Math.Round(
             (decimal)count / maximumCount * (MaximumGradeBarHeight - MinimumGradeBarHeight));
+    }
+
+    private Guid? GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim is not null && Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            return userId;
+        }
+
+        return null;
     }
 
     private sealed record PrincipalGradeRow(decimal Value, int GradeNumber, char Letter);
