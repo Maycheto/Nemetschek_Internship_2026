@@ -365,4 +365,82 @@ public class GradeService : IGradeService
         var values = filteredGrades.Select(g => g.Value).ToList();
         return values.Any() ? Math.Round(values.Average(), 2) : 0;
     }
+
+    public async Task<GradeDto> CreateGradeAsync(
+        CreateGradeRequest request,
+        Guid createdByUserId,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation(
+            "Creating grade for student {StudentId}, class subject {ClassSubjectId}",
+            request.StudentId,
+            request.ClassSubjectId);
+
+        if (request.Value < 2 || request.Value > 6)
+            throw new ArgumentException("Оценката трябва да бъде между 2 и 6.");
+
+        var student = await _studentRepository.GetByIdAsync(request.StudentId, cancellationToken);
+        if (student is null)
+            throw new InvalidOperationException("Student not found.");
+
+        var classSubject = await _classSubjectService.GetByIdAsync(request.ClassSubjectId, cancellationToken);
+        if (classSubject is null)
+            throw new InvalidOperationException("Class subject not found.");
+
+        var user = await _userRepository.GetByIdAsync(createdByUserId, cancellationToken);
+        if (user is null)
+            throw new UnauthorizedAccessException("User not found.");
+
+        if (user.Role != UserRole.Principal)
+        {
+            var teachers = await _teacherService.GetAllAsync(cancellationToken);
+            var teacher = teachers.FirstOrDefault(t => t.UserId == createdByUserId);
+
+            if (teacher is null || !classSubject.TeacherId.HasValue || classSubject.TeacherId.Value != teacher.Id)
+                throw new UnauthorizedAccessException("Teacher does not teach this class subject.");
+        }
+
+        var grade = new Grade
+        {
+            Id = Guid.NewGuid(),
+            StudentId = request.StudentId,
+            ClassSubjectId = request.ClassSubjectId,
+            Value = request.Value,
+            Type = request.Type,
+            Note = request.Note,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _gradeRepository.CreateAsync(grade, cancellationToken);
+
+        var subject = await _subjectService.GetByIdAsync(classSubject.SubjectId, cancellationToken);
+
+        var teacherName = "Няма назначен учител";
+        if (classSubject.TeacherId.HasValue)
+        {
+            var teacher = await _teacherService.GetByIdAsync(classSubject.TeacherId.Value, cancellationToken);
+            if (teacher is not null)
+            {
+                var teacherUser = await _userRepository.GetByIdAsync(teacher.UserId, cancellationToken);
+                teacherName = teacherUser is not null
+                    ? $"{teacherUser.FirstName} {teacherUser.LastName}"
+                    : "Неизвестно";
+            }
+        }
+
+        return new GradeDto
+        {
+            Id = grade.Id,
+            Value = grade.Value,
+            Type = grade.Type,
+            Note = grade.Note,
+            Date = grade.CreatedAt,
+            SubjectId = classSubject.SubjectId,
+            SubjectName = subject?.Name ?? "Неизвестно",
+            TeacherId = classSubject.TeacherId ?? Guid.Empty,
+            TeacherName = teacherName,
+            StudentId = student.Id,
+            StudentName = $"{student.User.FirstName} {student.User.LastName}"
+        };
+    }
 }

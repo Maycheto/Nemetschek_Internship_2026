@@ -155,6 +155,40 @@ public IActionResult SelectClassAndSubject(Guid classId, Guid subjectId)
     return RedirectToAction("ClassGrades", new { classId, subjectId });
 }
 
+[HttpPost]
+[Authorize(Roles = "Teacher,Principal")]
+// TODO: Replace [IgnoreAntiforgeryToken] with header-based CSRF
+// protection (X-CSRF-TOKEN) before merging this branch into dev.
+// Temporarily disabled only to allow direct Postman testing during
+// development — this is a tracked, intentional gap, not an oversight.
+// Tracked in the team to-do list under point 2 (Grades).
+[IgnoreAntiforgeryToken]
+public async Task<IActionResult> CreateGrade([FromBody] CreateGradeRequest request, CancellationToken cancellationToken)
+{
+    if (!ModelState.IsValid)
+        return BadRequest(ModelState);
+
+    var userId = GetCurrentUserId();
+    if (!userId.HasValue)
+        return Unauthorized();
+
+    try
+    {
+        var gradeDto = await _gradeService.CreateGradeAsync(request, userId.Value, cancellationToken);
+        return Ok(gradeDto);
+    }
+    catch (UnauthorizedAccessException ex)
+    {
+        _logger.LogWarning(ex, "User {UserId} was denied creating a grade for class subject {ClassSubjectId}", userId, request.ClassSubjectId);
+        return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
+    }
+    catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+    {
+        _logger.LogWarning(ex, "Grade creation failed for student {StudentId}", request.StudentId);
+        return BadRequest(new { error = ex.Message });
+    }
+}
+
     private Guid? GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);

@@ -24,4 +24,9 @@ public interface IGradeService
         Guid studentId,
         Guid? subjectId = null,
         CancellationToken cancellationToken = default);
+
+    Task<GradeDto> CreateGradeAsync(
+        CreateGradeRequest request,
+        Guid createdByUserId,
+        CancellationToken cancellationToken = default);
 }
