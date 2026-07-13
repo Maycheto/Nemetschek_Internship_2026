@@ -311,7 +311,6 @@ static async Task SeedGeorgiGeorgievStudentAsync(WebApplication app)
             LastName = "Georgiev",
             Email = email,
             Password = passwordHasher.HashPassword(password),
-            IsActive = true,
             Role = UserRole.Student
         };
 
@@ -326,7 +325,6 @@ static async Task SeedGeorgiGeorgievStudentAsync(WebApplication app)
     user.LastName = "Georgiev";
     user.Email = email;
     user.Password = passwordHasher.HashPassword(password);
-    user.IsActive = true;
     user.Role = UserRole.Student;
     user.IsDeleted = false;
 

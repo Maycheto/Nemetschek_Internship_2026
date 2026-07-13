@@ -69,16 +69,6 @@ public class RegistrationService : IRegistrationService
             var existingUser = await accountsRepository.GetByEmailAsync(email, cancellationToken);
             if (existingUser is not null)
             {
-                if (await ResendInvitationForInactiveUserAsync(
-                    existingUser,
-                    UserRole.Student,
-                    RegistrationInvitationType.SetPassword,
-                    Array.Empty<Guid>(),
-                    cancellationToken))
-                {
-                    result.CreatedInvitations++;
-                }
-
                 continue;
             }
 
@@ -160,16 +150,6 @@ public class RegistrationService : IRegistrationService
             var existingUser = await accountsRepository.GetByEmailAsync(email, cancellationToken);
             if (existingUser is not null)
             {
-                if (await ResendInvitationForInactiveUserAsync(
-                    existingUser,
-                    UserRole.Teacher,
-                    RegistrationInvitationType.SetPassword,
-                    Array.Empty<Guid>(),
-                    cancellationToken))
-                {
-                    result.CreatedInvitations++;
-                }
-
                 continue;
             }
 
@@ -266,7 +246,6 @@ public class RegistrationService : IRegistrationService
             ?? throw new InvalidOperationException("User was not found.");
 
         user.Password = passwordHasher.HashPassword(request.Password);
-        user.IsActive = true;
         await accountsRepository.UpdateAsync(user, cancellationToken);
 
         invitation.UsedAtUtc = DateTime.UtcNow;
@@ -305,7 +284,6 @@ public class RegistrationService : IRegistrationService
                 Email = invitation.Email,
                 PhoneNumber = NormalizeOptional(request.PhoneNumber),
                 Password = passwordHasher.HashPassword(request.Password),
-                IsActive = true,
                 Role = UserRole.Parent
             };
 
@@ -322,11 +300,10 @@ public class RegistrationService : IRegistrationService
             user.LastName = NormalizeRequired(request.LastName);
             user.PhoneNumber = NormalizeOptional(request.PhoneNumber);
             user.Password = passwordHasher.HashPassword(request.Password);
-            user.IsActive = true;
             await accountsRepository.UpdateAsync(user, cancellationToken);
         }
 
-        await CreateOrUpdateParentProfileAsync(user.Id, invitation.Students.Select(student => student.Id).ToList(), cancellationToken);
+            await CreateOrUpdateParentProfileAsync(user.Id, invitation.Students.Select(student => student.Id).ToList(), cancellationToken);
 
         invitation.UserId = user.Id;
         invitation.UsedAtUtc = DateTime.UtcNow;
@@ -369,12 +346,6 @@ public class RegistrationService : IRegistrationService
                 throw new InvalidOperationException($"A non-{role.ToString().ToLowerInvariant()} account already uses this email.");
             }
 
-            if (!existingUser.IsActive)
-            {
-                existingUser.IsActive = true;
-                await accountsRepository.UpdateAsync(existingUser, cancellationToken);
-            }
-
             return new PrincipalSeedResult
             {
                 UserId = existingUser.Id,
@@ -391,7 +362,6 @@ public class RegistrationService : IRegistrationService
             Email = email,
             PhoneNumber = NormalizeOptional(request.PhoneNumber),
             Password = passwordHasher.HashPassword(request.Password),
-            IsActive = true,
             Role = role
         };
 
@@ -422,16 +392,6 @@ public class RegistrationService : IRegistrationService
             if (createdProfile)
             {
                 result.CreatedProfiles++;
-            }
-
-            if (await ResendInvitationForInactiveUserAsync(
-                existingUser,
-                UserRole.Parent,
-                RegistrationInvitationType.ParentSignUp,
-                studentIds,
-                cancellationToken))
-            {
-                result.CreatedInvitations++;
             }
 
             return;
@@ -468,58 +428,6 @@ public class RegistrationService : IRegistrationService
             studentIds,
             cancellationToken);
         result.CreatedInvitations++;
-    }
-
-    private async Task<bool> ResendInvitationForInactiveUserAsync(
-        User user,
-        UserRole role,
-        RegistrationInvitationType type,
-        IReadOnlyCollection<Guid> studentIds,
-        CancellationToken cancellationToken)
-    {
-        if (user.IsActive || user.Role != role)
-        {
-            return false;
-        }
-
-        var activeInvitations = await invitationRepository.GetActiveByEmailAsync(user.Email, cancellationToken);
-        var activeInvitation = activeInvitations.FirstOrDefault(invitation =>
-            invitation.Role == role &&
-            invitation.Type == type &&
-            invitation.UsedAtUtc is null &&
-            invitation.ExpiresAtUtc > DateTime.UtcNow);
-
-        if (activeInvitation is not null)
-        {
-            if (type == RegistrationInvitationType.ParentSignUp)
-            {
-                foreach (var studentId in studentIds)
-                {
-                    if (activeInvitation.Students.All(student => student.Id != studentId))
-                    {
-                        var student = await studentRepository.GetByIdAsync(studentId, cancellationToken)
-                            ?? throw new InvalidOperationException("Student was not found.");
-
-                        activeInvitation.Students.Add(student);
-                    }
-                }
-
-                activeInvitation.UserId ??= user.Id;
-                await invitationRepository.UpdateAsync(activeInvitation, cancellationToken);
-            }
-
-            return false;
-        }
-
-        await CreateInvitationAndSendEmailAsync(
-            user.Email,
-            role,
-            type,
-            user.Id,
-            studentIds,
-            cancellationToken);
-
-        return true;
     }
 
     private async Task<bool> CreateOrUpdateParentProfileAsync(
@@ -659,7 +567,6 @@ public class RegistrationService : IRegistrationService
             Email = email,
             PhoneNumber = phoneNumber,
             Password = string.Empty,
-            IsActive = false,
             Role = role
         };
     }
