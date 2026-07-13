@@ -6,6 +6,23 @@ namespace Services.Interfaces.Absences;
 public interface IAbsenceService
 {
     /// <summary>
+    /// Връща класовете/предметите, които преподава даден учител - използва се, за да може
+    /// учителят да избере от списък "на кой клас въвеждам отсъствие/закъснение".
+    /// </summary>
+    Task<IReadOnlyList<ClassSubject>> GetTeacherClassSubjectsAsync(
+        Guid teacherId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Намира "текущия учебен час" за избран ClassSubject - взима се автоматично от
+    /// седмичната програма, спрямо текущия ден от седмицата и час. Връща null, ако в момента
+    /// няма активен час за този ClassSubject (напр. извън учебно време).
+    /// </summary>
+    Task<ClassScheduleEntry?> GetCurrentScheduleEntryAsync(
+        Guid classSubjectId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Маркира ученик за текущия учебен час.
     /// 1-ви клик -> закъснение (Lateness / Unexcused).
     /// 2-ри клик (същия ученик, час, дата) -> ъпгрейд до неизвинено отсъствие (Absence / Unexcused).

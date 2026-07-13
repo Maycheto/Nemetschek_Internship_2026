@@ -214,6 +214,10 @@ static async Task EnsureDatabaseReadyAndMigratedAsync(WebApplication app)
             using var scope = app.Services.CreateScope();
             var dbContext = scope.ServiceProvider.GetRequiredService<NemeBookDbContext>();
 
+            var rawConn = dbContext.Database.GetDbConnection().ConnectionString;
+            var maskedConn = System.Text.RegularExpressions.Regex.Replace(rawConn, "(?i)(Password\\s*=\\s*)([^;]+)", "$1****");
+            logger.LogInformation("Resolved DB connection: {Conn}", maskedConn);
+
             await dbContext.Database.MigrateAsync();
             logger.LogInformation("Database is ready and migrations are applied.");
             return;

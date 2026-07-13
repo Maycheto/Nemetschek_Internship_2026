@@ -117,6 +117,41 @@ public class AbsencesController : ControllerBase
     }
 
     /// <summary>
+    /// Връща класовете/предметите, които преподава логнатият учител - за да избере от списък
+    /// преди да въведе отсъствие/закъснение.
+    /// </summary>
+    [HttpGet("my-classes")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> GetMyClasses(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null)
+            return Unauthorized();
+
+        var teacher = await GetCurrentTeacherAsync(userId.Value, cancellationToken);
+        if (teacher is null)
+            return Forbid();
+
+        var classSubjects = await _absenceService.GetTeacherClassSubjectsAsync(teacher.Id, cancellationToken);
+        return Ok(classSubjects.Select(TeacherClassSubjectDto.FromEntity).ToList());
+    }
+
+    /// <summary>
+    /// Намира текущия учебен час за избран ClassSubject, спрямо седмичната програма.
+    /// Връща 204, ако в момента няма активен час за него.
+    /// </summary>
+    [HttpGet("current-lesson/{classSubjectId:guid}")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> GetCurrentLesson(Guid classSubjectId, CancellationToken cancellationToken)
+    {
+        var entry = await _absenceService.GetCurrentScheduleEntryAsync(classSubjectId, cancellationToken);
+        if (entry is null)
+            return NoContent();
+
+        return Ok(CurrentLessonDto.FromEntity(entry));
+    }
+
+    /// <summary>
     /// Преглед на всички отсъствия/закъснения на конкретен ученик.
     /// </summary>
     [HttpGet("student/{studentId:guid}")]

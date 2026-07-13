@@ -25,17 +25,55 @@ public class AbsenceService : IAbsenceService
     private readonly ITeacherRepository _teacherRepository;
     private readonly IStudentRepository _studentRepository;
     private readonly IClassScheduleEntryRepository _classScheduleEntryRepository;
+    private readonly IClassSubjectRepository _classSubjectRepository;
 
     public AbsenceService(
         IAbsenceRepository absenceRepository,
         ITeacherRepository teacherRepository,
         IStudentRepository studentRepository,
-        IClassScheduleEntryRepository classScheduleEntryRepository)
+        IClassScheduleEntryRepository classScheduleEntryRepository,
+        IClassSubjectRepository classSubjectRepository)
     {
         _absenceRepository = absenceRepository;
         _teacherRepository = teacherRepository;
         _studentRepository = studentRepository;
         _classScheduleEntryRepository = classScheduleEntryRepository;
+        _classSubjectRepository = classSubjectRepository;
+    }
+
+    public async Task<IReadOnlyList<ClassSubject>> GetTeacherClassSubjectsAsync(
+        Guid teacherId,
+        CancellationToken cancellationToken = default)
+    {
+        if (teacherId == Guid.Empty)
+            throw new ArgumentException("Teacher id cannot be empty.", nameof(teacherId));
+
+        var allClassSubjects = await _classSubjectRepository.GetAllAsync(cancellationToken);
+
+        return allClassSubjects.Where(cs => cs.TeacherId == teacherId).ToList();
+    }
+
+    public async Task<ClassScheduleEntry?> GetCurrentScheduleEntryAsync(
+        Guid classSubjectId,
+        CancellationToken cancellationToken = default)
+    {
+        if (classSubjectId == Guid.Empty)
+            throw new ArgumentException("Class subject id cannot be empty.", nameof(classSubjectId));
+
+        // ВНИМАНИЕ: използва локалното време на сървъра (DateTime.Now), за да определи
+        // текущия ден/час спрямо седмичната програма. Ако сървърът работи в различна
+        // часова зона от училището, трябва да се смени с TimeZoneInfo конверсия.
+        var now = DateTime.Now;
+        var currentDay = now.DayOfWeek;
+        var currentTime = TimeOnly.FromDateTime(now);
+
+        var allEntries = await _classScheduleEntryRepository.GetAllAsync(cancellationToken);
+
+        return allEntries.FirstOrDefault(e =>
+            e.ClassSubjectId == classSubjectId &&
+            e.DayOfWeek == currentDay &&
+            e.StartsAt <= currentTime &&
+            e.EndsAt >= currentTime);
     }
 
     public async Task<Absence> MarkAsync(
