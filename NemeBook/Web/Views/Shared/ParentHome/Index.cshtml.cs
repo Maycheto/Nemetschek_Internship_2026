@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
-namespace Web.Views.Shared
+namespace Web.Views.Shared.ParentHome
 {
-    public class _ParentLayoutModel : PageModel
+    public class IndexModel : PageModel
     {
         public void OnGet()
         {

@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
-namespace Web.Views.Shared
+namespace Web.Views.Shared.ParentSchedule
 {
-    public class _ParentSidebarModel : PageModel
+    public class IndexModel : PageModel
     {
         public void OnGet()
         {
