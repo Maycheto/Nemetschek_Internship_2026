@@ -371,13 +371,15 @@ public class AccountController : Controller
     private async Task SignInUserAsync(Entities.Models.User user, bool rememberMe)
     {
         var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Email, user.Email),
-            new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"),
-            new Claim(ClaimTypes.Role, user.Role.ToString()),
-            new Claim("FullName", FormatFullName(user.FirstName, user.MiddleName, user.LastName)),
-        };
+{
+    new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+    new Claim("UserId", user.Id.ToString()), 
+    new Claim(ClaimTypes.Email, user.Email),
+    new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"),
+    new Claim(ClaimTypes.Role, user.Role.ToString()),
+    new Claim("FullName", FormatFullName(user.FirstName, user.MiddleName, user.LastName)),
+};
+
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);

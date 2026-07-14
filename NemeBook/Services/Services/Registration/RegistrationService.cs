@@ -869,6 +869,11 @@ public class RegistrationService : IRegistrationService
         return !string.IsNullOrWhiteSpace(email) &&
                new EmailAddressAttribute().IsValid(email);
     }
+    public async Task<RegistrationInvitation?> GetInvitationByTokenAsync(string token)
+    {
+        var tokenHash = invitationTokenService.HashToken(token);
+        return await invitationRepository.GetByTokenHashAsync(tokenHash);
+    }
 
     private static void AddIssue(RegistrationImportResult result, int? rowNumber, string? email, string message)
     {
