@@ -34,4 +34,10 @@ public interface IGradeService
         BulkCreateGradeRequest request,
         Guid createdByUserId,
         CancellationToken cancellationToken = default);
+
+    Task<GradeDto> UpdateGradeAsync(
+        UpdateGradeRequest request,
+        Guid currentUserId,
+        string currentUserRole,
+        CancellationToken cancellationToken = default);
 }

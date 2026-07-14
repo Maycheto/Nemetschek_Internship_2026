@@ -496,6 +496,65 @@ public class GradeService : IGradeService
         return result;
     }
 
+    public async Task<GradeDto> UpdateGradeAsync(
+        UpdateGradeRequest request,
+        Guid currentUserId,
+        string currentUserRole,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Updating grade {GradeId}", request.GradeId);
+
+        if (request.Value < 2 || request.Value > 6)
+            throw new ArgumentException("Оценката трябва да бъде между 2 и 6.");
+
+        var grade = await _gradeRepository.GetByIdAsync(request.GradeId, cancellationToken);
+        if (grade is null)
+            throw new KeyNotFoundException("Grade not found.");
+
+        // Reuses the same ClassSubject/teacher-ownership check as create: Principal bypasses, Teacher must own the ClassSubject.
+        var classSubject = await ValidateClassSubjectAccessAsync(grade.ClassSubjectId, currentUserId, cancellationToken);
+
+        if (currentUserRole == "Teacher")
+        {
+            if (DateTime.UtcNow - grade.CreatedAt > TimeSpan.FromDays(7))
+                throw new InvalidOperationException("Срокът за редакция от учител е изтекъл (1 седмица). Свържете се с администрацията.");
+        }
+        else if (currentUserRole == "Principal")
+        {
+            if (DateTime.UtcNow - grade.CreatedAt > TimeSpan.FromDays(30))
+                throw new InvalidOperationException("Срокът за редакция е изтекъл (1 месец). Оценката вече не може да бъде променяна.");
+        }
+        else
+        {
+            throw new UnauthorizedAccessException("Insufficient permissions to update grades.");
+        }
+
+        grade.Value = request.Value;
+        grade.Type = request.Type;
+        grade.Note = request.Note;
+
+        await _gradeRepository.UpdateAsync(grade, cancellationToken);
+
+        var student = await _studentRepository.GetByIdAsync(grade.StudentId, cancellationToken);
+        var subject = await _subjectService.GetByIdAsync(classSubject.SubjectId, cancellationToken);
+        var teacherName = await ResolveTeacherNameAsync(classSubject, cancellationToken);
+
+        return new GradeDto
+        {
+            Id = grade.Id,
+            Value = grade.Value,
+            Type = grade.Type,
+            Note = grade.Note,
+            Date = grade.CreatedAt,
+            SubjectId = classSubject.SubjectId,
+            SubjectName = subject?.Name ?? "Неизвестно",
+            TeacherId = classSubject.TeacherId ?? Guid.Empty,
+            TeacherName = teacherName,
+            StudentId = grade.StudentId,
+            StudentName = student is not null ? $"{student.User.FirstName} {student.User.LastName}" : "Неизвестно"
+        };
+    }
+
     private async Task<ClassSubject> ValidateClassSubjectAccessAsync(
         Guid classSubjectId,
         Guid userId,

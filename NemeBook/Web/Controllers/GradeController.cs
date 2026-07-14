@@ -225,6 +225,40 @@ public async Task<IActionResult> CreateGradesBulk([FromBody] BulkCreateGradeRequ
     }
 }
 
+[HttpPut]
+[Authorize(Roles = "Teacher,Principal")]
+// TODO: Replace [IgnoreAntiforgeryToken] with header-based CSRF
+// protection (X-CSRF-TOKEN) before merging this branch into dev.
+// Same tracked gap as CreateGrade/CreateGradesBulk — see team to-do
+// list, point 2.
+[IgnoreAntiforgeryToken]
+public async Task<IActionResult> UpdateGrade([FromBody] UpdateGradeRequest request, CancellationToken cancellationToken)
+{
+    if (!ModelState.IsValid)
+        return BadRequest(ModelState);
+
+    var userId = GetCurrentUserId();
+    if (!userId.HasValue)
+        return Unauthorized();
+
+    var role = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+
+    try
+    {
+        var gradeDto = await _gradeService.UpdateGradeAsync(request, userId.Value, role, cancellationToken);
+        return Ok(gradeDto);
+    }
+    catch (KeyNotFoundException)
+    {
+        return NotFound();
+    }
+    catch (Exception ex) when (ex is UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+    {
+        _logger.LogWarning(ex, "Grade update failed for grade {GradeId}", request.GradeId);
+        return BadRequest(new { error = ex.Message });
+    }
+}
+
     private Guid? GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
