@@ -271,7 +271,7 @@
             const substituteDropdown = document.querySelector('.nb-schedule-teacher-dropdown');
             const clearSubstitute = document.getElementById('clearSubstituteTeacher');
             const teacherScopeToggle = document.getElementById('toggleScheduleTeacherScope');
-            const teacherSearchUrl = '@Url.Action("SearchFreeScheduleTeacherMatches", "ClassManagement")';
+            const teacherSearchUrl = '@Url.Content("~/Admin/ClassManagement/SearchFreeScheduleTeacherMatches")';
             let selectedDayOfWeek = '';
             let selectedPeriodNumber = '';
             let selectedTeacherId = '';

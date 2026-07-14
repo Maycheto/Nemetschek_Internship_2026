@@ -120,9 +120,10 @@ public class PrincipalClassManagementService : IPrincipalClassManagementService
         {
             var currentTerm = searchTerm;
             studentsQuery = studentsQuery.Where(student =>
-                student.User.FirstName.Contains(currentTerm) ||
-                (student.User.MiddleName != null && student.User.MiddleName.Contains(currentTerm)) ||
-                student.User.LastName.Contains(currentTerm));
+                student.User.FirstName.Contains(currentTerm, StringComparison.OrdinalIgnoreCase) ||
+                (student.User.MiddleName != null &&
+                 student.User.MiddleName.Contains(currentTerm, StringComparison.OrdinalIgnoreCase)) ||
+                student.User.LastName.Contains(currentTerm, StringComparison.OrdinalIgnoreCase));
         }
 
         var studentRows = studentsQuery
@@ -1139,9 +1140,10 @@ public class PrincipalClassManagementService : IPrincipalClassManagementService
         {
             var currentTerm = searchTerm;
             teachersQuery = teachersQuery.Where(teacher =>
-                teacher.User.FirstName.Contains(currentTerm) ||
-                (teacher.User.MiddleName != null && teacher.User.MiddleName.Contains(currentTerm)) ||
-                teacher.User.LastName.Contains(currentTerm));
+                teacher.User.FirstName.Contains(currentTerm, StringComparison.OrdinalIgnoreCase) ||
+                (teacher.User.MiddleName != null &&
+                 teacher.User.MiddleName.Contains(currentTerm, StringComparison.OrdinalIgnoreCase)) ||
+                teacher.User.LastName.Contains(currentTerm, StringComparison.OrdinalIgnoreCase));
         }
 
         var teacherRows = teachersQuery
