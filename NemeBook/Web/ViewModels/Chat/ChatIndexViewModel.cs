@@ -38,6 +38,8 @@ public class ChatListItemViewModel
     public string? LastMessageTime { get; set; }
 
     public DateTime? LastActivityAt { get; set; }
+
+    public bool IsClassChat { get; set; }
 }
 
 public class ChatContactViewModel

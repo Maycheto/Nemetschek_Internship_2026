@@ -37,7 +37,9 @@
             connectionText.textContent = text;
         }
 
-        connectionDot.className = `nb-chat-connection-dot ${stateClass || ""}`.trim();
+        if (connectionDot) {
+            connectionDot.className = `nb-chat-connection-dot ${stateClass || ""}`.trim();
+        }
     }
 
     function normalizeId(value) {

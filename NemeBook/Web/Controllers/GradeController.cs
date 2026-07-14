@@ -131,12 +131,13 @@ public async Task<IActionResult> SelectClassAndSubject()
     var teachers = await _teacherService.GetAllAsync();
     var teacher = teachers.FirstOrDefault(t => t.UserId == userId.Value);
     
-    if (teacher is null)
+    var role = User.FindFirst(ClaimTypes.Role)?.Value;
+    if (teacher is null && role != "Principal")
         return RedirectToAction("AccessDenied", "Account");
 
     var classSubjects = await _classSubjectService.GetAllAsync();
     var teacherClassSubjects = classSubjects
-        .Where(cs => cs.TeacherId == teacher.Id)
+        .Where(cs => role == "Principal" || cs.TeacherId == teacher?.Id)
         .ToList();
 
     var classes = await _classService.GetAllAsync();
@@ -144,8 +145,8 @@ public async Task<IActionResult> SelectClassAndSubject()
 
     var viewModel = new SelectClassSubjectViewModel
     {
-        TeacherId = teacher.Id,
-        TeacherName = $"{teacher.User.FirstName} {teacher.User.LastName}",
+        TeacherId = teacher?.Id ?? Guid.Empty,
+        TeacherName = teacher is null ? "Директор" : $"{teacher.User.FirstName} {teacher.User.LastName}",
         AvailableClasses = classes
             .Where(c => teacherClassSubjects.Any(tcs => tcs.ClassId == c.Id))
             .Select(c => new ClassSelectDto { Id = c.Id, Name = $"{c.GradeNumber}{c.Letter}" })
@@ -153,6 +154,18 @@ public async Task<IActionResult> SelectClassAndSubject()
         AvailableSubjects = subjects
             .Where(s => teacherClassSubjects.Any(tcs => tcs.SubjectId == s.Id))
             .Select(s => new SubjectSelectDto { Id = s.Id, Name = s.Name })
+            .ToList(),
+        AvailableClassSubjects = teacherClassSubjects
+            .Select(cs => new ClassSubjectSelectDto
+            {
+                ClassId = cs.ClassId,
+                ClassName = $"{cs.Class.GradeNumber}{cs.Class.Letter}",
+                SubjectId = cs.SubjectId,
+                SubjectName = cs.Subject.Name,
+                ClassSubjectId = cs.Id
+            })
+            .OrderBy(option => option.ClassName)
+            .ThenBy(option => option.SubjectName)
             .ToList()
     };
 
@@ -161,8 +174,17 @@ public async Task<IActionResult> SelectClassAndSubject()
 
 [HttpPost]
 [Authorize(Roles = "Teacher,Principal")]
-public IActionResult SelectClassAndSubject(Guid classId, Guid subjectId)
+public async Task<IActionResult> SelectClassAndSubject(Guid classId, Guid subjectId, Guid? classSubjectId = null)
 {
+    if (classSubjectId.HasValue)
+    {
+        var classSubject = await _classSubjectService.GetByIdAsync(classSubjectId.Value);
+        if (classSubject is not null)
+        {
+            return RedirectToAction("ClassGrades", new { classId = classSubject.ClassId, subjectId = classSubject.SubjectId });
+        }
+    }
+
     return RedirectToAction("ClassGrades", new { classId, subjectId });
 }
 
@@ -342,6 +364,7 @@ public class SelectClassSubjectViewModel
     public string TeacherName { get; set; } = string.Empty;
     public List<ClassSelectDto> AvailableClasses { get; set; } = new();
     public List<SubjectSelectDto> AvailableSubjects { get; set; } = new();
+    public List<ClassSubjectSelectDto> AvailableClassSubjects { get; set; } = new();
 }
 
 public class ClassSelectDto
@@ -354,4 +377,13 @@ public class SubjectSelectDto
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
+}
+
+public class ClassSubjectSelectDto
+{
+    public Guid ClassSubjectId { get; set; }
+    public Guid ClassId { get; set; }
+    public string ClassName { get; set; } = string.Empty;
+    public Guid SubjectId { get; set; }
+    public string SubjectName { get; set; } = string.Empty;
 }

@@ -12,11 +12,19 @@ public class TeacherHomeViewModel
 
     public Guid? SubjectId { get; set; }
 
+    public Guid? MainClassId { get; set; }
+
+    public bool HasMainClass { get; set; }
+
     public string ClassName { get; set; } = "0";
 
     public int StudentCount { get; set; }
 
     public IReadOnlyList<TeacherClassListItem> TeachingClasses { get; set; } = Array.Empty<TeacherClassListItem>();
+
+    public IReadOnlyList<TeacherSubjectListItem> TeachingSubjects { get; set; } = Array.Empty<TeacherSubjectListItem>();
+
+    public IReadOnlyList<TeacherClassSubjectOption> ClassSubjectOptions { get; set; } = Array.Empty<TeacherClassSubjectOption>();
 
     public IReadOnlyList<TeacherStudentListItem> Students { get; set; } = Array.Empty<TeacherStudentListItem>();
 
@@ -36,6 +44,21 @@ public class TeacherClassListItem
     public bool IsMainClass { get; set; }
 }
 
+public class TeacherSubjectListItem
+{
+    public Guid ClassSubjectId { get; set; }
+
+    public Guid ClassId { get; set; }
+
+    public string ClassName { get; set; } = string.Empty;
+
+    public Guid SubjectId { get; set; }
+
+    public string SubjectName { get; set; } = string.Empty;
+
+    public int StudentCount { get; set; }
+}
+
 public class TeacherStudentListItem
 {
     public Guid Id { get; set; }
@@ -47,6 +70,15 @@ public class TeacherStudentListItem
     public int RecordCount { get; set; }
 
     public bool IsSelected { get; set; }
+}
+
+public class TeacherClassSubjectOption
+{
+    public Guid ClassSubjectId { get; set; }
+
+    public Guid SubjectId { get; set; }
+
+    public string SubjectName { get; set; } = string.Empty;
 }
 
 public class TeacherSelectedStudentViewModel

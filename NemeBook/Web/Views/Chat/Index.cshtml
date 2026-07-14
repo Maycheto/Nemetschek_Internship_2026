@@ -14,29 +14,9 @@
     ViewData["ShellUserName"] = Model.CurrentUserName;
     ViewData["ShellUserMeta"] = Model.CurrentUserRole;
     ViewData["ShellUserInitials"] = Model.CurrentUserInitials;
-}
 
-@section TopbarActions {
-    @if (Model.CurrentUserRoleValue != UserRole.Principal)
-    {
-        <button class="nb-notification-button" type="button" data-notification-bell aria-label="Нотификации" title="Нотификации">
-            <i class="bi bi-bell-fill"></i>
-            <span class="nb-notification-dot"></span>
-        </button>
-    }
-    <div class="nb-chat-status">
-        <span id="chatConnectionDot" class="nb-chat-connection-dot"></span>
-    </div>
-    @if (Model.CurrentUserRoleValue == UserRole.Principal)
-    {
-        <form asp-action="Logout" asp-area="" asp-controller="Account" method="post">
-            @Html.AntiForgeryToken()
-            <button class="nb-principal-action-btn is-logout" type="submit">
-                <span>Изход</span>
-                <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
-            </button>
-        </form>
-    }
+    var classChats = Model.Chats.Where(chat => chat.IsClassChat).ToList();
+    var directChats = Model.Chats.Where(chat => !chat.IsClassChat).ToList();
 }
 
 @section Styles {
@@ -499,10 +479,29 @@
         </div>
     </div>
 
+    @if ((Model.CurrentUserRoleValue == UserRole.Student || Model.CurrentUserRoleValue == UserRole.Teacher) && classChats.Count > 0)
+    {
+        <div class="nb-chat-section-title">Клас</div>
+
+        <div class="nb-chat-list">
+            @foreach (var chat in classChats)
+            {
+                <button class="nb-chat-list-item" type="button" data-chat-id="@chat.Id">
+                    <span class="nb-chat-avatar">@chat.Initials</span>
+                    <span class="nb-chat-list-copy">
+                        <strong>@chat.Title</strong>
+                        <small>@(chat.LastMessage ?? "Ученици и класен ръководител")</small>
+                    </span>
+                    <em>@chat.LastMessageTime</em>
+                </button>
+            }
+        </div>
+    }
+
     <div class="nb-chat-section-title">Скорошни чатове</div>
 
     <div id="chatList" class="nb-chat-list">
-        @foreach (var chat in Model.Chats)
+        @foreach (var chat in directChats)
         {
             <button class="nb-chat-list-item" type="button" data-chat-id="@chat.Id">
                 <span class="nb-chat-avatar">@chat.Initials</span>
@@ -515,7 +514,7 @@
         }
     </div>
 
-    <div id="chatEmptyState" class="nb-chat-empty @(Model.Chats.Any() ? string.Empty : "is-visible")">
+    <div id="chatEmptyState" class="nb-chat-empty @(directChats.Any() ? string.Empty : "is-visible")">
         Няма активни разговори.
     </div>
 </aside>

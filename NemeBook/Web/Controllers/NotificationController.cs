@@ -8,6 +8,7 @@ namespace Web.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/notifications")]
+[Route("notifications")]
 public class NotificationController : ControllerBase
 {
     private readonly INotificationService _notificationService;
@@ -18,6 +19,7 @@ public class NotificationController : ControllerBase
     }
 
     [HttpGet("recent")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> GetRecent([FromQuery] int take = 10, CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
@@ -32,7 +34,24 @@ public class NotificationController : ControllerBase
         return Ok(notifications.Take(normalizedTake));
     }
 
+    [HttpGet("unread")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> GetUnread([FromQuery] int take = 10, CancellationToken cancellationToken = default)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var normalizedTake = Math.Clamp(take, 1, 50);
+        var notifications = await _notificationService.GetUnreadNotificationsAsync(userId.Value, cancellationToken);
+
+        return Ok(notifications.Take(normalizedTake));
+    }
+
     [HttpGet("unread-count")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> GetUnreadCount(CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();

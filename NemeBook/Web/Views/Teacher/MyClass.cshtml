@@ -3,12 +3,16 @@
 @{
     Layout = "_AppShell";
     ViewData["Title"] = "Моят клас";
-    ViewData["ActiveNav"] = "MyClass";
+    var selectedClassSubjectId = ViewData["SelectedClassSubjectId"] is Guid selectedSubject
+        ? selectedSubject
+        : (Guid?)null;
+    ViewData["ActiveNav"] = selectedClassSubjectId.HasValue ? "MySubjects" : "MyClass";
     ViewData["ShellUserName"] = Model.TeacherName;
     ViewData["ShellUserMeta"] = Model.MainMeta;
     ViewData["ShellUserInitials"] = Model.TeacherInitials;
 
-    var canCreateRecords = Model.ClassId.HasValue && Model.SubjectId.HasValue;
+    var canCreateRecords = Model.ClassId.HasValue && Model.ClassSubjectOptions.Count > 0;
+    var canOpenStudentProfile = !selectedClassSubjectId.HasValue && Model.MainClassId.HasValue && Model.ClassId == Model.MainClassId;
     var today = DateTime.Today.ToString("yyyy-MM-dd");
 }
 
@@ -34,31 +38,49 @@
     .nb-class-panel {
         display: grid;
         grid-template-rows: auto auto 1fr;
-        padding: 10px 12px 18px;
+        padding: 16px;
     }
-    .nb-class-tabs {
+    .nb-class-panel-header {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 6px;
-        margin-bottom: 8px;
-        padding: 0;
+        gap: 12px;
+        margin-bottom: 12px;
     }
-    .nb-class-tab {
-        min-height: 27px;
-        display: grid;
-        place-items: center;
-        border: 0;
-        border-radius: 7px;
-        background: #fff7ef;
-        color: #9b948b;
-        font: inherit;
-        font-size: 10px;
+    .nb-class-panel-title {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 12px;
+    }
+    .nb-class-panel-title h2 {
+        margin: 0;
+        color: #20232a;
+        font-size: 19px;
+        font-weight: 950;
+    }
+    .nb-class-panel-title span {
+        color: #8f887f;
+        font-size: 12px;
         font-weight: 850;
     }
-    .nb-class-tab.is-active {
-        background: #ffffff;
-        color: #f97316;
-        box-shadow: inset 0 0 0 1px #ffe4cc;
+    .nb-class-subject-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .nb-class-subject-chip {
+        min-height: 25px;
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: #fff0dc;
+        color: #d95f0b;
+        font-size: 11px;
+        font-weight: 950;
+    }
+    .nb-class-subject-chip.is-selected {
+        background: #f97316;
+        color: #ffffff;
     }
     .nb-class-search {
         min-height: 30px;
@@ -239,6 +261,10 @@
     .nb-action-button.is-warning {
         background: #fff1c8;
         color: #bf7200;
+    }
+    .nb-action-button.is-secondary {
+        background: #eef4ff;
+        color: #2563eb;
     }
     .nb-action-button[disabled],
     .nb-action-button[aria-disabled="true"] {
@@ -421,9 +447,26 @@
 
 <section class="nb-teacher-class-page" aria-label="Моят клас">
     <article class="nb-class-panel">
-        <div class="nb-class-tabs" role="tablist" aria-label="Действия за класа">
-            <button class="nb-class-tab is-active" type="button">Записи</button>
-            <button class="nb-class-tab" type="button">Корекции</button>
+        <div class="nb-class-panel-header">
+            <div class="nb-class-panel-title">
+                <div>
+                    <h2>Клас @Model.ClassName</h2>
+                    <span>@Model.StudentCount ученици</span>
+                </div>
+                <span>@(Model.ClassSubjectOptions.Count == 1 ? "1 предмет" : $"{Model.ClassSubjectOptions.Count} предмета")</span>
+            </div>
+
+            @if (Model.ClassSubjectOptions.Count > 0)
+            {
+                <div class="nb-class-subject-strip" aria-label="Предмети">
+                    @foreach (var classSubject in Model.ClassSubjectOptions)
+                    {
+                        <span class="nb-class-subject-chip @(selectedClassSubjectId == classSubject.ClassSubjectId ? "is-selected" : null)">
+                            @classSubject.SubjectName
+                        </span>
+                    }
+                </div>
+            }
         </div>
 
         <label class="nb-class-search">
@@ -474,6 +517,10 @@
         <div class="nb-panel-section">
             <span class="nb-panel-label">Действия</span>
             <div class="nb-actions">
+                @if (canOpenStudentProfile)
+                {
+                    <a class="nb-action-button is-secondary" id="studentDetailsLink" href="#" aria-disabled="true">Профил и отсъствия</a>
+                }
                 @if (canCreateRecords && Model.Students.Count > 0)
                 {
                     <button class="nb-action-button is-primary" type="button" data-record-open="grade" disabled>+ Оценка</button>
@@ -521,6 +568,17 @@
 
                         <div class="nb-record-grid">
                             <div class="nb-record-field">
+                                <label for="gradeClassSubjectId">Предмет</label>
+                                <select id="gradeClassSubjectId" name="ClassSubjectId" required>
+                                    @foreach (var classSubject in Model.ClassSubjectOptions)
+                                    {
+                                        <option value="@classSubject.ClassSubjectId" selected="@(selectedClassSubjectId == classSubject.ClassSubjectId)">
+                                            @classSubject.SubjectName
+                                        </option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="nb-record-field">
                                 <label for="gradeValue">Оценка</label>
                                 <input id="gradeValue" name="Value" type="number" min="2" max="6" step="0.25" value="6" required />
                             </div>
@@ -549,6 +607,17 @@
 
                         <div class="nb-record-grid">
                             <div class="nb-record-field">
+                                <label for="feedbackClassSubjectId">Предмет</label>
+                                <select id="feedbackClassSubjectId" name="ClassSubjectId" required>
+                                    @foreach (var classSubject in Model.ClassSubjectOptions)
+                                    {
+                                        <option value="@classSubject.ClassSubjectId" selected="@(selectedClassSubjectId == classSubject.ClassSubjectId)">
+                                            @classSubject.SubjectName
+                                        </option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="nb-record-field">
                                 <label for="feedbackDate">Дата</label>
                                 <input id="feedbackDate" name="Date" type="date" value="@today" required />
                             </div>
@@ -576,6 +645,17 @@
                         <input class="nb-record-student-id" type="hidden" name="StudentId" value="" />
 
                         <div class="nb-record-grid">
+                            <div class="nb-record-field">
+                                <label for="absenceClassSubjectId">Предмет</label>
+                                <select id="absenceClassSubjectId" name="ClassSubjectId" required>
+                                    @foreach (var classSubject in Model.ClassSubjectOptions)
+                                    {
+                                        <option value="@classSubject.ClassSubjectId" selected="@(selectedClassSubjectId == classSubject.ClassSubjectId)">
+                                            @classSubject.SubjectName
+                                        </option>
+                                    }
+                                </select>
+                            </div>
                             <div class="nb-record-field">
                                 <label for="absenceDate">Дата</label>
                                 <input id="absenceDate" name="Date" type="date" value="@today" required />
@@ -648,8 +728,10 @@ const selectedName = document.getElementById("selectedStudentName");
 const selectedClass = document.getElementById("selectedStudentClass");
 const selectedInitials = document.getElementById("selectedStudentInitials");
 const selectedRecordCount = document.getElementById("selectedStudentRecordCount");
+const studentDetailsLink = document.getElementById("studentDetailsLink");
 const modalStudentName = document.querySelector("[data-record-student-name]");
 const modalStudentClass = document.querySelector("[data-record-student-class]");
+const studentDetailsBaseUrl = '@Url.Action("Student", "Teacher")';
 let selectedStudent = null;
 
 const getStudent = (row) => row ? {
@@ -685,6 +767,10 @@ const setSelectedStudent = (row) => {
     hiddenStudentInputs.forEach((input) => {
         input.value = student.id;
     });
+    if (studentDetailsLink) {
+        studentDetailsLink.href = `${studentDetailsBaseUrl}?studentId=${encodeURIComponent(student.id)}`;
+        studentDetailsLink.removeAttribute("aria-disabled");
+    }
 
     if (modalStudentName) {
         modalStudentName.textContent = student.name;
@@ -739,6 +825,12 @@ sideButtons.forEach((button) => {
     button.addEventListener("click", () => {
         openModal(button.dataset.recordOpen || "grade");
     });
+});
+
+studentDetailsLink?.addEventListener("click", (event) => {
+    if (!selectedStudent) {
+        event.preventDefault();
+    }
 });
 
 tabs.forEach((tab) => {

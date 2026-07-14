@@ -218,7 +218,8 @@ public class ChatController : Controller
             Initials = GetChatInitials(currentUserId, chat, title),
             LastMessage = lastMessage?.Text,
             LastMessageTime = lastMessage?.SentAt.ToLocalTime().ToString("HH:mm"),
-            LastActivityAt = lastMessage?.SentAt
+            LastActivityAt = lastMessage?.SentAt,
+            IsClassChat = IsClassChat(chat)
         };
     }
 
@@ -240,7 +241,7 @@ public class ChatController : Controller
             return "Учителска група";
         }
 
-        if (chat.Name?.StartsWith("CLASS:", StringComparison.OrdinalIgnoreCase) == true)
+        if (IsClassChat(chat))
         {
             return "Класен чат";
         }
@@ -261,7 +262,7 @@ public class ChatController : Controller
             return "Общ чат за учители";
         }
 
-        if (chat.Name?.StartsWith("CLASS:", StringComparison.OrdinalIgnoreCase) == true)
+        if (IsClassChat(chat))
         {
             return "Групов чат";
         }
@@ -288,6 +289,11 @@ public class ChatController : Controller
             " ",
             new[] { user.FirstName, user.MiddleName, user.LastName }
                 .Where(value => !string.IsNullOrWhiteSpace(value)));
+    }
+
+    private static bool IsClassChat(Chat chat)
+    {
+        return chat.Name?.StartsWith("CLASS:", StringComparison.OrdinalIgnoreCase) == true;
     }
 
     private static string FormatInitials(string firstName, string lastName)
@@ -321,7 +327,7 @@ public class ChatController : Controller
         {
             UserRole.Student => "учител",
             UserRole.Teacher => "ученик или родител",
-            UserRole.Parent => "учител или директор",
+            UserRole.Parent => "учител",
             UserRole.Principal => "потребител",
             _ => "потребител"
         };

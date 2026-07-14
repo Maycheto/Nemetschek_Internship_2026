@@ -23,7 +23,11 @@
         </a>
         <a class="@(activeNav == "MyClass" ? "is-active" : null)" asp-area="" asp-controller="Teacher" asp-action="MyClass">
             <i class="bi bi-people-fill"></i>
-            <span>Моите класове</span>
+            <span>Моят клас</span>
+        </a>
+        <a class="@(activeNav == "MySubjects" ? "is-active" : null)" asp-area="" asp-controller="Teacher" asp-action="MySubjects">
+            <i class="bi bi-journal-bookmark-fill"></i>
+            <span>Моите предмети</span>
         </a>
         <a class="@(activeNav == "Chats" ? "is-active" : null)" asp-area="" asp-controller="Chat" asp-action="Index">
             <i class="bi bi-chat-dots"></i>

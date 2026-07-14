@@ -2,6 +2,7 @@
 using Entities.Models;
 using Entities.ViewModels.Grades;
 using Microsoft.Extensions.Logging;
+using Services.Interfaces;
 using Services.Interfaces.ClassSubjects;
 using Services.Interfaces.Classes;
 using Services.Interfaces.Grades;
@@ -20,6 +21,7 @@ public class GradeService : IGradeService
     private readonly ISubjectService _subjectService;
     private readonly ITeacherService _teacherService;
     private readonly IUserRepository _userRepository;
+    private readonly INotificationService _notificationService;
     private readonly ILogger<GradeService> _logger;
 
     public GradeService(
@@ -30,6 +32,7 @@ public class GradeService : IGradeService
         ISubjectService subjectService,
         ITeacherService teacherService,
         IUserRepository userRepository,
+        INotificationService notificationService,
         ILogger<GradeService> logger)
     {
         _gradeRepository = gradeRepository;
@@ -39,6 +42,7 @@ public class GradeService : IGradeService
         _subjectService = subjectService;
         _teacherService = teacherService;
         _userRepository = userRepository;
+        _notificationService = notificationService;
         _logger = logger;
     }
 
@@ -281,6 +285,7 @@ public class GradeService : IGradeService
             ClassName = $"{classEntity.GradeNumber}{classEntity.Letter}",
             SubjectId = subjectId,
             SubjectName = subject.Name,
+            ClassSubjectId = classSubject.Id,
             TeacherId = classSubject.TeacherId ?? Guid.Empty,
             TeacherName = teacherName
         };
@@ -400,6 +405,12 @@ public class GradeService : IGradeService
 
         var subject = await _subjectService.GetByIdAsync(classSubject.SubjectId, cancellationToken);
         var teacherName = await ResolveTeacherNameAsync(classSubject, cancellationToken);
+        await CreateGradeNotificationAsync(
+            student,
+            NotificationType.Grade,
+            $"Нова оценка {grade.Value:0.##} по {subject?.Name ?? "неизвестен предмет"}.",
+            grade.Id,
+            cancellationToken);
 
         return new GradeDto
         {
@@ -477,6 +488,13 @@ public class GradeService : IGradeService
         foreach (var grade in gradesToCreate)
         {
             var student = studentsByGradeId[grade.Id];
+            await CreateGradeNotificationAsync(
+                student,
+                NotificationType.Grade,
+                $"Нова оценка {grade.Value:0.##} по {subject?.Name ?? "неизвестен предмет"}.",
+                grade.Id,
+                cancellationToken);
+
             result.CreatedGrades.Add(new GradeDto
             {
                 Id = grade.Id,
@@ -522,6 +540,15 @@ public class GradeService : IGradeService
         var student = await _studentRepository.GetByIdAsync(grade.StudentId, cancellationToken);
         var subject = await _subjectService.GetByIdAsync(classSubject.SubjectId, cancellationToken);
         var teacherName = await ResolveTeacherNameAsync(classSubject, cancellationToken);
+        if (student is not null)
+        {
+            await CreateGradeNotificationAsync(
+                student,
+                NotificationType.Grade,
+                $"Променена оценка {grade.Value:0.##} по {subject?.Name ?? "неизвестен предмет"}.",
+                grade.Id,
+                cancellationToken);
+        }
 
         return new GradeDto
         {
@@ -551,9 +578,21 @@ public class GradeService : IGradeService
         if (grade is null)
             throw new KeyNotFoundException("Grade not found.");
 
-        await EnsureCanModifyGradeAsync(grade, currentUserId, currentUserRole, cancellationToken);
+        var classSubject = await EnsureCanModifyGradeAsync(grade, currentUserId, currentUserRole, cancellationToken);
+        var student = await _studentRepository.GetByIdAsync(grade.StudentId, cancellationToken);
+        var subject = await _subjectService.GetByIdAsync(classSubject.SubjectId, cancellationToken);
 
         await _gradeRepository.DeleteAsync(gradeId, cancellationToken);
+
+        if (student is not null)
+        {
+            await CreateGradeNotificationAsync(
+                student,
+                NotificationType.Grade,
+                $"Изтрита оценка по {subject?.Name ?? "неизвестен предмет"}.",
+                null,
+                cancellationToken);
+        }
     }
 
     // Shared by UpdateGradeAsync and DeleteGradeAsync: Principal has a 30-day window, Teacher (who must own the
@@ -625,5 +664,25 @@ public class GradeService : IGradeService
         }
 
         return teacherName;
+    }
+
+    private async Task CreateGradeNotificationAsync(
+        Student student,
+        NotificationType type,
+        string text,
+        Guid? gradeId,
+        CancellationToken cancellationToken)
+    {
+        if (student.UserId == Guid.Empty || student.User.IsDeleted || !student.User.IsActive)
+        {
+            return;
+        }
+
+        await _notificationService.CreateNotificationAsync(
+            student.UserId,
+            type,
+            text,
+            gradeId: gradeId,
+            cancellationToken: cancellationToken);
     }
 }

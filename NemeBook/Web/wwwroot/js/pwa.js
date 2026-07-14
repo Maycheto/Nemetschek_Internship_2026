@@ -6,7 +6,13 @@
     let registrationPromise = Promise.resolve(null);
 
     if (supportsServiceWorker) {
-        registrationPromise = navigator.serviceWorker.register("/service-worker.js").catch(() => null);
+        registrationPromise = navigator.serviceWorker
+            .register("/service-worker.js?v=2")
+            .then((registration) => {
+                registration.update().catch(() => null);
+                return registration;
+            })
+            .catch(() => null);
     }
 
     function setBellState() {

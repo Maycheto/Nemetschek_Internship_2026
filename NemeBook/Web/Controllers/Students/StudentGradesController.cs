@@ -52,7 +52,7 @@ public class StudentGradesController : Controller
         ViewBag.FromDate = filter?.FromDate?.ToString("yyyy-MM-dd");
         ViewBag.ToDate = filter?.ToDate?.ToString("yyyy-MM-dd");
 
-        return View(viewModel);
+        return View("~/Views/Grade/StudentGrades.cshtml", viewModel);
     }
 
     [HttpGet("GetAverage")]

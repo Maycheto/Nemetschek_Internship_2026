@@ -13,25 +13,6 @@
     var latestSubjects = Model.AcademicSubjects.Take(5).ToList();
 }
 
-@section TopbarActions {
-    <button class="nb-notification-button"
-            type="button"
-            data-nb-modal-open="student-notifications-modal"
-            data-notification-open
-            aria-label="Известия"
-            title="Известия">
-        <i class="bi bi-bell-fill" aria-hidden="true"></i>
-        <span class="nb-notification-badge" data-notification-count hidden>0</span>
-    </button>
-    <form asp-controller="Account" asp-action="Logout" method="post">
-        @Html.AntiForgeryToken()
-        <button class="nb-principal-action-btn is-logout" type="submit">
-            <span>Изход</span>
-            <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
-        </button>
-    </form>
-}
-
 @section Styles {
 <style>
     .nb-student-content {
@@ -1238,6 +1219,12 @@ document.addEventListener("keydown", (event) => {
 })();
 
 (() => {
+    if (window.NemeBookNotificationsInitialized) {
+        return;
+    }
+
+    window.NemeBookNotificationsInitialized = true;
+
     const notificationButton = document.querySelector("[data-notification-open]");
     const notificationBadge = document.querySelector("[data-notification-count]");
     const notificationList = document.querySelector("[data-notification-list]");

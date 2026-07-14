@@ -6,6 +6,7 @@ public class ClassGradesViewModel
     public string ClassName { get; set; } = string.Empty;
     public Guid SubjectId { get; set; }
     public string SubjectName { get; set; } = string.Empty;
+    public Guid ClassSubjectId { get; set; }
     public Guid TeacherId { get; set; }
     public string TeacherName { get; set; } = string.Empty;
 

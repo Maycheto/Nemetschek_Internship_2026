@@ -460,7 +460,7 @@
         <article class="nb-teacher-card nb-teacher-id-card">
             <div class="nb-teacher-id-content">
                 <span class="nb-teacher-name-pill">@Model.TeacherName</span>
-                <span class="nb-teacher-meta-pill">Клас @className</span>
+                <span class="nb-teacher-meta-pill">@(Model.HasMainClass ? $"Клас {className}" : "Предмети")</span>
             </div>
             <span class="nb-teacher-initials" aria-hidden="true">@Model.TeacherInitials</span>
         </article>
@@ -470,8 +470,8 @@
 
             <div class="nb-teacher-overview-row">
                 <span class="nb-teacher-dot"></span>
-                <strong>Моят клас</strong>
-                <em>@className</em>
+                <strong>@(Model.HasMainClass ? "Моят клас" : "Предмети")</strong>
+                <em>@(Model.HasMainClass ? className : Model.TeachingSubjects.Count)</em>
             </div>
 
             <div class="nb-teacher-overview-row">
@@ -488,7 +488,7 @@
         </article>
 
         <aside class="nb-teacher-side-stack" aria-label="Бърза информация">
-            <a class="nb-teacher-mini-card" asp-controller="Teacher" asp-action="MyClass">
+            <a class="nb-teacher-mini-card" asp-controller="Teacher" asp-action="MySubjects">
                 <div>
                     <h3>Отзиви</h3>
                     <strong>0</strong>
@@ -497,7 +497,7 @@
                 <i class="bi bi-chat-square-text-fill" aria-hidden="true"></i>
             </a>
 
-            <a class="nb-teacher-mini-card" asp-controller="Teacher" asp-action="MyClass">
+            <a class="nb-teacher-mini-card" asp-controller="Teacher" asp-action="MySubjects">
                 <div>
                     <h3>Отсъствия</h3>
                     <strong>0</strong>
@@ -511,8 +511,8 @@
     <section class="nb-teacher-lower">
         <article class="nb-teacher-list-card">
             <div class="nb-teacher-heading">
-                <h2>Моят клас</h2>
-                <a asp-controller="Teacher" asp-action="MyClass">
+                <h2>@(Model.HasMainClass ? "Моят клас" : "Моите предмети")</h2>
+                <a asp-controller="Teacher" asp-action="@(Model.HasMainClass ? "MyClass" : "MySubjects")">
                     <span>Детайли</span>
                     <i class="bi bi-arrow-right-short" aria-hidden="true"></i>
                 </a>

@@ -1,146 +1,392 @@
-﻿@model Entities.ViewModels.Grades.ClassGradesViewModel
+@using Entities.Enums
+@model Entities.ViewModels.Grades.ClassGradesViewModel
 
 @{
+    Layout = "_AppShell";
     ViewData["Title"] = $"Оценки - {Model.ClassName} - {Model.SubjectName}";
+    var currentRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
 }
 
-<div class="container">
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">
-                        <i class="bi bi-people-fill"></i>
-                        @Model.ClassName - @Model.SubjectName
-                    </h4>
-                    <small>Учител: @Model.TeacherName</small>
-                </div>
-                <div class="card-body">
-                    <!-- Статистика -->
-                    <div class="row mb-4">
-                        <div class="col-md-3">
-                            <div class="card bg-info text-white">
-                                <div class="card-body text-center">
-                                    <h6>Среден успех</h6>
-                                    <h3>@Model.Summary.ClassAverage.ToString("F2")</h3>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card bg-success text-white">
-                                <div class="card-body text-center">
-                                    <h6>Най-висока</h6>
-                                    <h3>@Model.Summary.MaxGrade?.ToString("F2")</h3>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card bg-danger text-white">
-                                <div class="card-body text-center">
-                                    <h6>Най-ниска</h6>
-                                    <h3>@Model.Summary.MinGrade?.ToString("F2")</h3>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card bg-secondary text-white">
-                                <div class="card-body text-center">
-                                    <h6>Ученици</h6>
-                                    <h3>@Model.Summary.TotalStudents</h3>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+@section Styles {
+<style>
+    .nb-grades-page { padding: 28px 34px 44px; }
+    .nb-grades-header { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .nb-grades-header h1 { margin: 0; color: #20232a; font-size: 24px; font-weight: 950; }
+    .nb-grades-header p { margin: 6px 0 0; color: #80786f; font-size: 13px; font-weight: 800; }
+    .nb-grades-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .nb-grade-btn { min-height: 36px; border: 0; border-radius: 7px; padding: 0 13px; background: #f97316; color: #fff; font: inherit; font-size: 12px; font-weight: 950; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 7px; }
+    .nb-grade-btn.is-muted { background: #f2eee9; color: #5f5851; }
+    .nb-grade-summary { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .nb-grade-stat { border: 1px solid #eee7df; border-radius: 8px; background: #fff; padding: 14px; box-shadow: 0 10px 22px rgba(42, 35, 29, 0.05); }
+    .nb-grade-stat span { display: block; color: #8b837a; font-size: 11px; font-weight: 900; }
+    .nb-grade-stat strong { display: block; margin-top: 8px; color: #20232a; font-size: 24px; font-weight: 950; }
+    .nb-grade-panel { border: 1px solid #eee7df; border-radius: 8px; background: #fff; overflow: hidden; box-shadow: 0 10px 22px rgba(42, 35, 29, 0.05); }
+    .nb-grade-table { width: 100%; border-collapse: collapse; }
+    .nb-grade-table th, .nb-grade-table td { padding: 12px 14px; border-bottom: 1px solid #f0e8df; text-align: left; vertical-align: top; }
+    .nb-grade-table th { color: #6f6962; font-size: 11px; font-weight: 950; text-transform: uppercase; }
+    .nb-grade-table td { color: #252933; font-size: 13px; font-weight: 750; }
+    .nb-grade-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .nb-grade-pill { min-width: 30px; min-height: 28px; border: 0; border-radius: 7px; padding: 0 8px; background: #fff1c8; color: #9a5b00; font: inherit; font-weight: 950; cursor: pointer; }
+    .nb-grade-pill.is-high { background: #dff8e9; color: #159953; }
+    .nb-grade-pill.is-low { background: #ffe0dc; color: #c23329; }
+    .nb-student-select { display: grid; gap: 6px; max-height: 230px; overflow: auto; padding: 8px; border: 1px solid #eee3d8; border-radius: 7px; background: #fffaf5; }
+    .nb-student-select label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; }
+    .nb-grade-modal-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 20px; background: rgba(31, 35, 43, .42); }
+    .nb-grade-modal-backdrop[hidden] { display: none; }
+    .nb-grade-modal { width: min(560px, 100%); border-radius: 8px; background: #fff; box-shadow: 0 30px 80px rgba(31, 35, 43, .28); overflow: hidden; }
+    .nb-grade-modal header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 1px solid #eee7df; }
+    .nb-grade-modal h2 { margin: 0; color: #20232a; font-size: 17px; font-weight: 950; }
+    .nb-grade-close { width: 34px; height: 34px; border: 1px solid #f0ded0; border-radius: 50%; background: #fff8f1; color: #e95b0c; cursor: pointer; }
+    .nb-grade-form { display: grid; gap: 12px; padding: 18px; }
+    .nb-grade-field { display: grid; gap: 6px; }
+    .nb-grade-field label, .nb-grade-field span { color: #6f6962; font-size: 11px; font-weight: 900; }
+    .nb-grade-field input, .nb-grade-field select, .nb-grade-field textarea { width: 100%; min-height: 38px; border: 1px solid #eee3d8; border-radius: 7px; background: #fffaf5; color: #242832; font: inherit; font-size: 13px; font-weight: 750; padding: 8px 10px; }
+    .nb-grade-field textarea { min-height: 82px; resize: vertical; }
+    .nb-grade-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .nb-grade-error { color: #c23329; font-size: 12px; font-weight: 850; }
+    @@media (max-width: 760px) { .nb-grades-page { padding: 18px; } .nb-grades-header { display: grid; } .nb-grade-summary { grid-template-columns: repeat(2, 1fr); } .nb-grade-table { min-width: 720px; } .nb-grade-panel { overflow-x: auto; } }
+</style>
+}
 
-                    <!-- Разпределение на оценките -->
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <div class="card">
-                                <div class="card-body">
-                                    <h6>Разпределение на оценките</h6>
-                                    <div class="d-flex gap-3">
-                                        @foreach (var dist in Model.Summary.GradeDistribution.OrderBy(d => d.Key))
-                                        {
-                                            <div class="text-center">
-                                                <span class="badge @(dist.Key >= 5 ? "bg-success" : dist.Key >= 4 ? "bg-warning" : "bg-danger")">
-                                                    @dist.Key
-                                                </span>
-                                                <div><strong>@dist.Value</strong></div>
-                                                <small>оценки</small>
-                                            </div>
-                                        }
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+<section class="nb-grades-page" data-class-subject-id="@Model.ClassSubjectId">
+    <header class="nb-grades-header">
+        <div>
+            <h1>@Model.ClassName - @Model.SubjectName</h1>
+            <p>Учител: @Model.TeacherName</p>
+        </div>
+        <div class="nb-grades-actions">
+            <a class="nb-grade-btn is-muted" asp-controller="Grade" asp-action="SelectClassAndSubject">Избери клас</a>
+            <a class="nb-grade-btn is-muted" asp-controller="Grade" asp-action="Ranking" asp-route-classId="@Model.ClassId" asp-route-subjectId="@Model.SubjectId">Класация</a>
+            <button class="nb-grade-btn" type="button" data-open-create>Добави оценка</button>
+        </div>
+    </header>
 
-                    <!-- Таблица с оценки -->
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover" id="gradesTable">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Ученик</th>
-                                    <th>Оценки</th>
-                                    <th>Брой</th>
-                                    <th>Среден успех</th>
-                                    <th>Последна</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @{
-                                    int index = 1;
-                                    var sortedStudents = Model.StudentGrades
-                                        .OrderByDescending(s => s.Average)
-                                        .ThenBy(s => s.StudentName)
-                                        .ToList();
-                                }
-                                @foreach (var student in sortedStudents)
-                                {
-                                    <tr>
-                                        <td>@index</td>
-                                        <td>@student.StudentName</td>
-                                        <td>
-                                            @foreach (var grade in student.Grades.OrderByDescending(g => g.Date).Take(10))
-                                            {
-                                                <span class="badge @(grade.Value >= 5 ? "bg-success" : grade.Value >= 4 ? "bg-warning" : "bg-danger") me-1">
-                                                    @grade.Value.ToString("F2")
-                                                </span>
-                                            }
-                                            @if (student.Grades.Count > 10)
-                                            {
-                                                <span class="badge bg-secondary">+@(student.Grades.Count - 10)</span>
-                                            }
-                                        </td>
-                                        <td>@student.TotalGrades</td>
-                                        <td>
-                                            <strong class="@(student.Average >= 5 ? "text-success" : student.Average >= 4 ? "text-warning" : "text-danger")">
-                                                @student.Average.ToString("F2")
-                                            </strong>
-                                        </td>
-                                        <td>
-                                            @if (student.LatestGrade is not null)
-                                            {
-                                                <span class="badge @(student.LatestGrade.Value >= 5 ? "bg-success" : student.LatestGrade.Value >= 4 ? "bg-warning" : "bg-danger")">
-                                                    @student.LatestGrade.Value.ToString("F2")
-                                                </span>
-                                                <br />
-                                                <small>@student.LatestGrade.Date.ToString("dd.MM.yyyy")</small>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted">Няма</span>
-                                            }
-                                        </td>
-                                    </tr>
-                                    index++;
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+    <div class="nb-grade-summary">
+        <div class="nb-grade-stat"><span>Среден успех</span><strong>@Model.Summary.ClassAverage.ToString("0.00")</strong></div>
+        <div class="nb-grade-stat"><span>Най-висока</span><strong>@(Model.Summary.MaxGrade?.ToString("0.00") ?? "-")</strong></div>
+        <div class="nb-grade-stat"><span>Най-ниска</span><strong>@(Model.Summary.MinGrade?.ToString("0.00") ?? "-")</strong></div>
+        <div class="nb-grade-stat"><span>Ученици</span><strong>@Model.Summary.TotalStudents</strong></div>
+    </div>
+
+    <div class="nb-grade-panel">
+        <table class="nb-grade-table">
+            <thead>
+                <tr>
+                    <th>Ученик</th>
+                    <th>Оценки</th>
+                    <th>Брой</th>
+                    <th>Среден успех</th>
+                    <th>Последна</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var student in Model.StudentGrades.OrderBy(row => row.StudentName))
+            {
+                <tr>
+                    <td>
+                        <strong>@student.StudentName</strong>
+                        <input type="hidden" data-student-id="@student.StudentId" data-student-name="@student.StudentName" />
+                    </td>
+                    <td>
+                        <div class="nb-grade-list">
+                            @foreach (var grade in student.Grades.OrderByDescending(grade => grade.Date))
+                            {
+                                <button class="nb-grade-pill @GetGradeClass(grade.Value)"
+                                        type="button"
+                                        title="Реална стойност: @grade.Value.ToString("0.##")"
+                                        data-grade-id="@grade.Id"
+                                        data-grade-value="@grade.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                        data-grade-display="@FormatDisplayGrade(grade.Value, Model.ClassName)"
+                                        data-grade-type="@((int)grade.Type)"
+                                        data-grade-note="@grade.Note">
+                                    @FormatDisplayGrade(grade.Value, Model.ClassName)
+                                </button>
+                            }
+                        </div>
+                    </td>
+                    <td>@student.TotalGrades</td>
+                    <td><strong>@student.Average.ToString("0.00")</strong></td>
+                    <td>
+                        @if (student.LatestGrade is null)
+                        {
+                            <span>-</span>
+                        }
+                        else
+                        {
+                            <span>@FormatDisplayGrade(student.LatestGrade.Value, Model.ClassName)</span>
+                            <small>@student.LatestGrade.Date.ToString("dd.MM.yyyy")</small>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<div class="nb-grade-modal-backdrop" data-create-modal hidden>
+    <section class="nb-grade-modal" role="dialog" aria-modal="true" aria-labelledby="create-grade-title">
+        <header>
+            <h2 id="create-grade-title">Добави оценка</h2>
+            <button class="nb-grade-close" type="button" data-close-modal aria-label="Затвори"><i class="bi bi-x-lg"></i></button>
+        </header>
+        <form class="nb-grade-form" data-create-grade-form>
+            <div class="nb-grade-field">
+                <span>Ученици</span>
+                <div class="nb-student-select">
+                    @foreach (var student in Model.StudentGrades.OrderBy(row => row.StudentName))
+                    {
+                        <label>
+                            <input type="checkbox" name="studentIds" value="@student.StudentId" />
+                            <span>@student.StudentName</span>
+                        </label>
+                    }
                 </div>
             </div>
-        </div>
-    </div>
+            <div class="nb-grade-field">
+                <label for="createGradeValue">Оценка</label>
+                <input id="createGradeValue" name="value" type="number" min="2" max="6" step="0.25" value="6" required />
+            </div>
+            <div class="nb-grade-field">
+                <label for="createGradeType">Тип</label>
+                <select id="createGradeType" name="type" required>
+                    @foreach (var gradeType in Enum.GetValues<GradeType>())
+                    {
+                        <option value="@((int)gradeType)">@GetDisplayName(gradeType)</option>
+                    }
+                </select>
+            </div>
+            <div class="nb-grade-field">
+                <label for="createGradeNote">Бележка</label>
+                <textarea id="createGradeNote" name="note"></textarea>
+            </div>
+            <div class="nb-grade-error" data-create-error hidden></div>
+            <div class="nb-grade-modal-actions">
+                <button class="nb-grade-btn is-muted" type="button" data-close-modal>Отказ</button>
+                <button class="nb-grade-btn" type="submit">Запази</button>
+            </div>
+        </form>
+    </section>
 </div>
+
+<div class="nb-grade-modal-backdrop" data-edit-modal hidden>
+    <section class="nb-grade-modal" role="dialog" aria-modal="true" aria-labelledby="edit-grade-title">
+        <header>
+            <h2 id="edit-grade-title">Редактирай оценка</h2>
+            <button class="nb-grade-close" type="button" data-close-modal aria-label="Затвори"><i class="bi bi-x-lg"></i></button>
+        </header>
+        <form class="nb-grade-form" data-edit-grade-form>
+            <input type="hidden" name="gradeId" />
+            <div class="nb-grade-field">
+                <span>Показване</span>
+                <strong data-edit-display></strong>
+            </div>
+            <div class="nb-grade-field">
+                <label for="editGradeValue">Реална стойност</label>
+                <input id="editGradeValue" name="value" type="number" min="2" max="6" step="0.25" required />
+            </div>
+            <div class="nb-grade-field">
+                <label for="editGradeType">Тип</label>
+                <select id="editGradeType" name="type" required>
+                    @foreach (var gradeType in Enum.GetValues<GradeType>())
+                    {
+                        <option value="@((int)gradeType)">@GetDisplayName(gradeType)</option>
+                    }
+                </select>
+            </div>
+            <div class="nb-grade-field">
+                <label for="editGradeNote">Бележка</label>
+                <textarea id="editGradeNote" name="note"></textarea>
+            </div>
+            <div class="nb-grade-error" data-edit-error hidden></div>
+            <div class="nb-grade-modal-actions">
+                <button class="nb-grade-btn is-muted" type="button" data-delete-grade>Изтрий</button>
+                <button class="nb-grade-btn" type="submit">Запази</button>
+            </div>
+        </form>
+    </section>
+</div>
+
+@section Scripts {
+<script>
+(() => {
+    const classSubjectId = document.querySelector("[data-class-subject-id]")?.dataset.classSubjectId;
+    const createModal = document.querySelector("[data-create-modal]");
+    const editModal = document.querySelector("[data-edit-modal]");
+    const createForm = document.querySelector("[data-create-grade-form]");
+    const editForm = document.querySelector("[data-edit-grade-form]");
+    const createError = document.querySelector("[data-create-error]");
+    const editError = document.querySelector("[data-edit-error]");
+    const editDisplay = document.querySelector("[data-edit-display]");
+
+    const showError = (element, message) => {
+        if (!element) return;
+        element.textContent = message || "Възникна грешка.";
+        element.hidden = false;
+    };
+
+    const requestJson = async (url, method, body) => {
+        const response = await fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: body ? JSON.stringify(body) : undefined
+        });
+        if (!response.ok) {
+            let message = "Заявката не беше успешна.";
+            try {
+                const payload = await response.json();
+                message = payload.error || message;
+            } catch {}
+            throw new Error(message);
+        }
+        return response.status === 204 ? null : response.json();
+    };
+
+    document.querySelector("[data-open-create]")?.addEventListener("click", () => {
+        if (createError) createError.hidden = true;
+        createModal.hidden = false;
+    });
+
+    document.querySelectorAll("[data-close-modal]").forEach((button) => {
+        button.addEventListener("click", () => {
+            createModal.hidden = true;
+            editModal.hidden = true;
+        });
+    });
+
+    document.querySelectorAll("[data-grade-id]").forEach((button) => {
+        button.addEventListener("click", () => {
+            if (editError) editError.hidden = true;
+            editForm.elements.gradeId.value = button.dataset.gradeId || "";
+            editForm.elements.value.value = button.dataset.gradeValue || "";
+            editForm.elements.type.value = button.dataset.gradeType || "0";
+            editForm.elements.note.value = button.dataset.gradeNote || "";
+            if (editDisplay) {
+                editDisplay.textContent = `${button.dataset.gradeDisplay || ""} (реална: ${button.dataset.gradeValue || ""})`;
+            }
+            editModal.hidden = false;
+        });
+    });
+
+    createForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (createError) createError.hidden = true;
+        const studentIds = Array.from(createForm.querySelectorAll("input[name='studentIds']:checked")).map(input => input.value);
+        if (studentIds.length === 0) {
+            showError(createError, "Изберете поне един ученик.");
+            return;
+        }
+
+        const payload = {
+            studentIds,
+            classSubjectId,
+            value: Number(createForm.elements.value.value),
+            type: Number(createForm.elements.type.value),
+            note: createForm.elements.note.value || ""
+        };
+
+        try {
+            if (studentIds.length === 1) {
+                await requestJson("/Grade/CreateGrade", "POST", {
+                    studentId: studentIds[0],
+                    classSubjectId,
+                    value: payload.value,
+                    type: payload.type,
+                    note: payload.note
+                });
+            } else {
+                await requestJson("/Grade/CreateGradesBulk", "POST", payload);
+            }
+            window.location.reload();
+        } catch (error) {
+            showError(createError, error.message);
+        }
+    });
+
+    editForm?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (editError) editError.hidden = true;
+
+        try {
+            await requestJson("/Grade/UpdateGrade", "PUT", {
+                gradeId: editForm.elements.gradeId.value,
+                value: Number(editForm.elements.value.value),
+                type: Number(editForm.elements.type.value),
+                note: editForm.elements.note.value || ""
+            });
+            window.location.reload();
+        } catch (error) {
+            showError(editError, error.message);
+        }
+    });
+
+    document.querySelector("[data-delete-grade]")?.addEventListener("click", async () => {
+        if (!confirm("Сигурни ли сте, че искате да изтриете тази оценка?")) {
+            return;
+        }
+
+        try {
+            await requestJson(`/Grade/DeleteGrade?gradeId=${encodeURIComponent(editForm.elements.gradeId.value)}`, "DELETE");
+            window.location.reload();
+        } catch (error) {
+            showError(editError, error.message);
+        }
+    });
+})();
+</script>
+}
+
+@functions {
+    private static string FormatDisplayGrade(decimal value, string? className)
+    {
+        if (IsEarlyGradeClass(className))
+        {
+            if (value < 3)
+            {
+                return ":(";
+            }
+
+            if (value < 4)
+            {
+                return ":|";
+            }
+
+            if (value < 5)
+            {
+                return ":)";
+            }
+
+            return value < 6 ? ":D" : ":-D";
+        }
+
+        if (value < 3)
+        {
+            return "2";
+        }
+
+        return (value % 1 >= 0.5m ? Math.Ceiling(value) : Math.Floor(value)).ToString("0");
+    }
+
+    private static string GetGradeClass(decimal value)
+    {
+        var display = value < 3 ? 2 : (int)(value % 1 >= 0.5m ? Math.Ceiling(value) : Math.Floor(value));
+        return display >= 5 ? "is-high" : display <= 3 ? "is-low" : string.Empty;
+    }
+
+    private static bool IsEarlyGradeClass(string? className)
+    {
+        return !string.IsNullOrWhiteSpace(className)
+            && (className.StartsWith("1", StringComparison.Ordinal) || className.StartsWith("2", StringComparison.Ordinal));
+    }
+
+    private static string GetDisplayName(Enum value)
+    {
+        return value.GetType()
+            .GetMember(value.ToString())
+            .First()
+            .GetCustomAttributes(typeof(System.ComponentModel.DataAnnotations.DisplayAttribute), false)
+            .OfType<System.ComponentModel.DataAnnotations.DisplayAttribute>()
+            .FirstOrDefault()
+            ?.GetName() ?? value.ToString();
+    }
+}

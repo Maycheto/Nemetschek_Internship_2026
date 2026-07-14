@@ -68,6 +68,7 @@ public class TeacherHomeService : ITeacherHomeService
             .OrderBy(schoolClass => schoolClass.GradeNumber)
             .ThenBy(schoolClass => schoolClass.Letter)
             .ToList();
+        var mainClass = accessibleClasses.FirstOrDefault(schoolClass => schoolClass.MainTeacherId == teacher.Id);
 
         var selectedClass = classId.HasValue
             ? accessibleClasses.FirstOrDefault(schoolClass => schoolClass.Id == classId.Value)
@@ -83,7 +84,20 @@ public class TeacherHomeService : ITeacherHomeService
             : assignedClassSubjects
                 .OrderBy(classSubject => classSubject.Subject.Name)
                 .FirstOrDefault(classSubject => classSubject.ClassId == selectedClass.Id);
+        var classSubjectOptions = selectedClass is null
+            ? Array.Empty<TeacherClassSubjectOption>()
+            : assignedClassSubjects
+                .Where(classSubject => classSubject.ClassId == selectedClass.Id)
+                .OrderBy(classSubject => classSubject.Subject.Name)
+                .Select(classSubject => new TeacherClassSubjectOption
+                {
+                    ClassSubjectId = classSubject.Id,
+                    SubjectId = classSubject.SubjectId,
+                    SubjectName = classSubject.Subject.Name
+                })
+                .ToArray();
         var students = selectedClass?.Students
+            .Where(student => student.User.IsActive && !student.User.IsDeleted)
             .OrderBy(student => student.User.FirstName)
             .ThenBy(student => student.User.LastName)
             .ToList() ?? new List<Student>();
@@ -105,9 +119,13 @@ public class TeacherHomeService : ITeacherHomeService
             MainMeta = className == "0" ? "Учител" : $"Клас {className}",
             ClassId = selectedClass?.Id,
             SubjectId = selectedClassSubject?.SubjectId,
+            MainClassId = mainClass?.Id,
+            HasMainClass = mainClass is not null,
             ClassName = className,
             StudentCount = students.Count,
             TeachingClasses = BuildTeachingClasses(accessibleClasses, assignedClassSubjects, teacher.Id),
+            TeachingSubjects = BuildTeachingSubjects(assignedClassSubjects),
+            ClassSubjectOptions = classSubjectOptions,
             Students = BuildStudents(students, recordCountsByStudentId),
             SelectedStudent = new TeacherSelectedStudentViewModel()
         };
@@ -147,6 +165,25 @@ public class TeacherHomeService : ITeacherHomeService
                     StudentCount = schoolClass.Students.Count,
                     IsMainClass = schoolClass.MainTeacherId == teacherId
                 };
+            })
+            .ToList();
+    }
+
+    private static IReadOnlyList<TeacherSubjectListItem> BuildTeachingSubjects(
+        IReadOnlyCollection<ClassSubject> assignedClassSubjects)
+    {
+        return assignedClassSubjects
+            .OrderBy(classSubject => classSubject.Subject.Name)
+            .ThenBy(classSubject => classSubject.Class.GradeNumber)
+            .ThenBy(classSubject => classSubject.Class.Letter)
+            .Select(classSubject => new TeacherSubjectListItem
+            {
+                ClassSubjectId = classSubject.Id,
+                ClassId = classSubject.ClassId,
+                ClassName = FormatClassName(classSubject.Class),
+                SubjectId = classSubject.SubjectId,
+                SubjectName = classSubject.Subject.Name,
+                StudentCount = classSubject.Class.Students.Count(student => student.User.IsActive && !student.User.IsDeleted)
             })
             .ToList();
     }

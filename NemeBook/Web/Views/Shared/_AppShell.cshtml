@@ -44,6 +44,10 @@
                     {
                         @await RenderSectionAsync("TopbarActions", required: false)
                     }
+                    else if (User.IsInRole("Student"))
+                    {
+                        <partial name="~/Views/Shared/Components/Student/_StudentTopbarActions.cshtml" />
+                    }
                     else if (isAdminShell)
                     {
                         <form asp-action="Logout" asp-area="" asp-controller="Account" method="post">

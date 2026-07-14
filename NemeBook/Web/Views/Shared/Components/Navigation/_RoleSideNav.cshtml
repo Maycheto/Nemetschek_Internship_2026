@@ -1,3 +1,7 @@
+@using System.Security.Claims
+@inject Services.Repositories.ITeacherRepository TeacherRepository
+@inject Services.Repositories.IClassRepository ClassRepository
+
 @{
     var activeNav = ViewData["PrincipalActiveSection"]?.ToString()
         ?? ViewData["ActiveNav"]?.ToString()
@@ -9,6 +13,22 @@
     var roleName = GetRoleName();
     var homeController = GetHomeController();
     var homeAction = GetHomeAction();
+    var teacherHasMainClass = false;
+
+    if (User.IsInRole("Teacher"))
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim is not null && Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            var teachers = await TeacherRepository.GetAllAsync();
+            var teacher = teachers.FirstOrDefault(currentTeacher => currentTeacher.UserId == userId);
+            if (teacher is not null)
+            {
+                var classes = await ClassRepository.GetAllAsync();
+                teacherHasMainClass = classes.Any(schoolClass => schoolClass.MainTeacherId == teacher.Id);
+            }
+        }
+    }
 
     string GetActiveClass(string section)
     {
@@ -59,9 +79,16 @@
                 <i class="bi bi-house-fill" aria-hidden="true"></i>
                 <span>Начало</span>
             </a>
-            <a class="@GetActiveClass("MyClass")" asp-area="" asp-controller="Teacher" asp-action="MyClass">
-                <i class="bi bi-people-fill" aria-hidden="true"></i>
-                <span>Моите класове</span>
+            @if (teacherHasMainClass)
+            {
+                <a class="@GetActiveClass("MyClass")" asp-area="" asp-controller="Teacher" asp-action="MyClass">
+                    <i class="bi bi-people-fill" aria-hidden="true"></i>
+                    <span>Моят клас</span>
+                </a>
+            }
+            <a class="@GetActiveClass("MySubjects")" asp-area="" asp-controller="Teacher" asp-action="MySubjects">
+                <i class="bi bi-journal-bookmark-fill" aria-hidden="true"></i>
+                <span>Моите предмети</span>
             </a>
             <a class="@GetActiveClass("Chats")" asp-area="" asp-controller="Chat" asp-action="Teacher">
                 <i class="bi bi-chat-dots-fill" aria-hidden="true"></i>
