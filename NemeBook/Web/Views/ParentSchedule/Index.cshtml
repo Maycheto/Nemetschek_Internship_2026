@@ -1,0 +1,52 @@
+﻿@model Web.ViewModels.ParentScheduleViewModel
+@{
+    Layout = "_ParentLayout";
+    ViewData["Title"] = "График";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/parent/schedule.css" />
+}
+
+<div class="parent-schedule">
+
+    <h2>График</h2>
+
+    <!-- Дни -->
+    <div class="ps-days">
+        @foreach (var day in Model.Days)
+        {
+            <a asp-action="Index"
+               asp-route-studentId="@Model.SelectedStudentId"
+               asp-route-day="@day.Key"
+               class="ps-day @(Model.SelectedDay == day.Key ? "active" : "")">
+                @day.Value
+            </a>
+        }
+    </div>
+
+    <!-- Таблица -->
+    <table class="ps-table">
+        <thead>
+            <tr>
+                <th>Време</th>
+                <th>Предмет</th>
+                <th>Стая</th>
+                <th>Учител</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @foreach (var row in Model.Entries)
+            {
+                <tr>
+                    <td>@row.TimeRange</td>
+                    <td>@row.SubjectName</td>
+                    <td>@row.Room</td>
+                    <td>@row.TeacherName</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+</div>

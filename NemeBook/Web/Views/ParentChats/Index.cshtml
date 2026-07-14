@@ -1,0 +1,55 @@
+﻿@model Web.ViewModels.ParentChatViewModel
+@{
+    Layout = "_ParentLayout";
+    ViewData["Title"] = "Чатове с учители";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/parent/chats.css" />
+}
+
+<div class="parent-chats">
+
+    <div class="pc-wrapper">
+
+        <!-- Ляв списък с учители -->
+        <div class="pc-teachers">
+            <h3>Учители</h3>
+
+            <ul>
+                <li class="active">Математика</li>
+                <li>Английски</li>
+                <li>Физика</li>
+                <li>Биология</li>
+                <li>История</li>
+                <li>Химия</li>
+            </ul>
+        </div>
+
+        <!-- Десен чат -->
+        <div class="pc-chat">
+            <h3>Математика</h3>
+
+            <div class="pc-messages">
+                <div class="pc-msg pc-msg-me">
+                    Здравейте, бих искала информация за домашното.
+                </div>
+
+                <div class="pc-msg pc-msg-them">
+                    Здравейте! Децата имат упражнение №4 от учебника.
+                </div>
+
+                <div class="pc-msg pc-msg-me">
+                    Благодаря!
+                </div>
+            </div>
+
+            <form class="pc-input">
+                <input type="text" placeholder="Напиши съобщение..." />
+                <button type="submit">Изпрати</button>
+            </form>
+        </div>
+
+    </div>
+
+</div>

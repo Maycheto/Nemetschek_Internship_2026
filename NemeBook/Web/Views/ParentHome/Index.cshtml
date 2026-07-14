@@ -1,0 +1,106 @@
+﻿@model Web.ViewModels.ParentHomeViewModel
+@{
+    Layout = "_ParentLayout";
+    ViewData["Title"] = "Начало";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/parent/home.css" />
+}
+
+<div class="parent-home">
+
+    <!-- Горен панел с избрано дете -->
+    <div class="ph-top-card">
+        <h2 class="ph-student-name">
+            @Model.SelectedStudentName
+        </h2>
+
+        <div class="ph-student-switch">
+            <label>Избери дете:</label>
+            <form method="get">
+                <select name="studentId" onchange="this.form.submit()">
+                    @foreach (var child in Model.Children)
+                    {
+                        var selected = Model.SelectedStudentId == child.StudentId ? "selected" : "";
+
+                        <option value="@child.StudentId" selected="@selected">
+                            @child.FullName
+                        </option>
+                    }
+                </select>
+
+            </form>
+        </div>
+    </div>
+
+    <!-- Средни панели -->
+    <div class="ph-middle-cards">
+
+        <!-- Средни оценки -->
+        <div class="ph-averages">
+            <h3>Средни оценки</h3>
+
+            @foreach (var subj in Model.SubjectAverages)
+            {
+                <div class="ph-average-item">
+                    <div class="ph-average-label">@subj.SubjectName</div>
+                    <div class="ph-average-bar">
+                        <div class="ph-average-fill"
+                             style="width:@(subj.Average * 10)%; background:@subj.ColorHex;">
+                        </div>
+                    </div>
+                    <div class="ph-average-value">@subj.Average</div>
+                </div>
+            }
+        </div>
+
+        <!-- Обратна връзка / Отсъствия -->
+        <div class="ph-summary">
+            <div class="ph-summary-card">
+                <h4>Обратна връзка</h4>
+                <div class="ph-summary-number">@Model.Summary?.FeedbacksCount</div>
+            </div>
+
+            <div class="ph-summary-card">
+                <h4>Отсъствия</h4>
+                <div class="ph-summary-number">@Model.Summary?.AbsencesCount</div>
+            </div>
+        </div>
+
+        <!-- Днес -->
+        <div class="ph-today">
+            <h3>Днес</h3>
+
+            @foreach (var entry in Model.TodaySchedule)
+            {
+                <div class="ph-today-item">
+                    <span>Час @entry.LessonNumber</span>
+                    <span>@entry.SubjectName</span>
+                </div>
+            }
+
+            <a asp-controller="ParentSchedule" asp-action="Index"
+               asp-route-studentId="@Model.SelectedStudentId"
+               class="ph-today-link">
+                График →
+            </a>
+        </div>
+
+    </div>
+
+    <!-- Последна активност -->
+    <div class="ph-recent">
+        <h3>Последна активност</h3>
+
+        @foreach (var act in Model.RecentActivity)
+        {
+            <div class="ph-recent-item">
+                <span>@act.Description</span>
+                <span class="ph-recent-date">@act.Date.ToString("dd.MM.yyyy")</span>
+            </div>
+        }
+    </div>
+
+</div>
+

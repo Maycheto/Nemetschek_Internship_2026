@@ -6,18 +6,18 @@
 <html lang="bg">
 <head>
     <meta charset="utf-8" />
-    <title>NemoBook Parent Portal</title>
+    <title>NemoBook Родителски портал</title>
 
-    <!-- Global Layout CSS -->
+    <!-- Глобален Layout CSS -->
     <link rel="stylesheet" href="~/css/_layout.css" />
 
-    <!-- Parent Portal Layout CSS -->
+    <!-- Layout CSS за родителския портал -->
     <link rel="stylesheet" href="~/css/parent/layout.css" />
 
     <!-- Sidebar CSS -->
     <link rel="stylesheet" href="~/css/parent/sidebar.css" />
 
-    <!-- Page‑specific CSS -->
+    <!-- CSS за конкретна страница -->
     @RenderSection("Styles", required: false)
 </head>
 
@@ -27,7 +27,7 @@
         <!-- Sidebar -->
         @await Html.PartialAsync("_ParentSidebar")
 
-        <!-- Main Content -->
+        <!-- Основно съдържание -->
         <main class="nb-parent-content">
             @RenderBody()
         </main>
@@ -35,3 +35,4 @@
     </div>
 </body>
 </html>
+

@@ -4,21 +4,22 @@
     <div class="nb-sidebar-nav">
         <a asp-controller="ParentHome" asp-action="Index"
            class="@(ViewContext.RouteData.Values["controller"]!.ToString() == "ParentHome" ? "active" : "")">
-            Home
+            Начало
         </a>
 
         <a asp-controller="ParentChats" asp-action="Index"
            class="@(ViewContext.RouteData.Values["controller"]!.ToString() == "ParentChats" ? "active" : "")">
-            Teacher Chats
+            Чатове с учители
         </a>
 
         <a asp-controller="ParentSchedule" asp-action="Index"
            class="@(ViewContext.RouteData.Values["controller"]!.ToString() == "ParentSchedule" ? "active" : "")">
-            Schedule
+            График
         </a>
 
         <a asp-controller="Account" asp-action="Logout" class="nb-sidebar-logout">
-            Log out
+            Изход
         </a>
     </div>
 </nav>
+
