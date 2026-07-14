@@ -40,4 +40,10 @@ public interface IGradeService
         Guid currentUserId,
         string currentUserRole,
         CancellationToken cancellationToken = default);
+
+    Task DeleteGradeAsync(
+        Guid gradeId,
+        Guid currentUserId,
+        string currentUserRole,
+        CancellationToken cancellationToken = default);
 }

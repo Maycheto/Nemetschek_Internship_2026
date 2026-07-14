@@ -259,6 +259,37 @@ public async Task<IActionResult> UpdateGrade([FromBody] UpdateGradeRequest reque
     }
 }
 
+[HttpDelete]
+[Authorize(Roles = "Teacher,Principal")]
+// TODO: Replace [IgnoreAntiforgeryToken] with header-based CSRF
+// protection (X-CSRF-TOKEN) before merging this branch into dev.
+// Same tracked gap as CreateGrade/CreateGradesBulk/UpdateGrade — see
+// team to-do list, point 2.
+[IgnoreAntiforgeryToken]
+public async Task<IActionResult> DeleteGrade(Guid gradeId, CancellationToken cancellationToken)
+{
+    var userId = GetCurrentUserId();
+    if (!userId.HasValue)
+        return Unauthorized();
+
+    var role = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+
+    try
+    {
+        await _gradeService.DeleteGradeAsync(gradeId, userId.Value, role, cancellationToken);
+        return NoContent();
+    }
+    catch (KeyNotFoundException)
+    {
+        return NotFound();
+    }
+    catch (Exception ex) when (ex is UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+    {
+        _logger.LogWarning(ex, "Grade deletion failed for grade {GradeId}", gradeId);
+        return BadRequest(new { error = ex.Message });
+    }
+}
+
     private Guid? GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);

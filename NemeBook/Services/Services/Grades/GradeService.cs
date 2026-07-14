@@ -511,23 +511,7 @@ public class GradeService : IGradeService
         if (grade is null)
             throw new KeyNotFoundException("Grade not found.");
 
-        // Reuses the same ClassSubject/teacher-ownership check as create: Principal bypasses, Teacher must own the ClassSubject.
-        var classSubject = await ValidateClassSubjectAccessAsync(grade.ClassSubjectId, currentUserId, cancellationToken);
-
-        if (currentUserRole == "Teacher")
-        {
-            if (DateTime.UtcNow - grade.CreatedAt > TimeSpan.FromDays(7))
-                throw new InvalidOperationException("Срокът за редакция от учител е изтекъл (1 седмица). Свържете се с администрацията.");
-        }
-        else if (currentUserRole == "Principal")
-        {
-            if (DateTime.UtcNow - grade.CreatedAt > TimeSpan.FromDays(30))
-                throw new InvalidOperationException("Срокът за редакция е изтекъл (1 месец). Оценката вече не може да бъде променяна.");
-        }
-        else
-        {
-            throw new UnauthorizedAccessException("Insufficient permissions to update grades.");
-        }
+        var classSubject = await EnsureCanModifyGradeAsync(grade, currentUserId, currentUserRole, cancellationToken);
 
         grade.Value = request.Value;
         grade.Type = request.Type;
@@ -553,6 +537,51 @@ public class GradeService : IGradeService
             StudentId = grade.StudentId,
             StudentName = student is not null ? $"{student.User.FirstName} {student.User.LastName}" : "Неизвестно"
         };
+    }
+
+    public async Task DeleteGradeAsync(
+        Guid gradeId,
+        Guid currentUserId,
+        string currentUserRole,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Deleting grade {GradeId}", gradeId);
+
+        var grade = await _gradeRepository.GetByIdAsync(gradeId, cancellationToken);
+        if (grade is null)
+            throw new KeyNotFoundException("Grade not found.");
+
+        await EnsureCanModifyGradeAsync(grade, currentUserId, currentUserRole, cancellationToken);
+
+        await _gradeRepository.DeleteAsync(gradeId, cancellationToken);
+    }
+
+    // Shared by UpdateGradeAsync and DeleteGradeAsync: Principal has a 30-day window, Teacher (who must own the
+    // grade's ClassSubject, checked via ValidateClassSubjectAccessAsync) has a 7-day window from Grade.CreatedAt.
+    private async Task<ClassSubject> EnsureCanModifyGradeAsync(
+        Grade grade,
+        Guid userId,
+        string role,
+        CancellationToken cancellationToken)
+    {
+        var classSubject = await ValidateClassSubjectAccessAsync(grade.ClassSubjectId, userId, cancellationToken);
+
+        if (role == "Teacher")
+        {
+            if (DateTime.UtcNow - grade.CreatedAt > TimeSpan.FromDays(7))
+                throw new InvalidOperationException("Срокът за редакция от учител е изтекъл (1 седмица). Свържете се с администрацията.");
+        }
+        else if (role == "Principal")
+        {
+            if (DateTime.UtcNow - grade.CreatedAt > TimeSpan.FromDays(30))
+                throw new InvalidOperationException("Срокът за редакция е изтекъл (1 месец). Оценката вече не може да бъде променяна.");
+        }
+        else
+        {
+            throw new UnauthorizedAccessException("Insufficient permissions to update grades.");
+        }
+
+        return classSubject;
     }
 
     private async Task<ClassSubject> ValidateClassSubjectAccessAsync(
