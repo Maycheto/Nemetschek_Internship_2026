@@ -100,3 +100,68 @@ docker compose down -v
 - If web fails to start with a port bind error, change WEB_HOST_PORT in .env (for example 8082), then run docker compose up --build -d again.
 - If SQL is slow on first boot, wait until mssql is healthy in docker compose ps.
 - If startup fails after pulling latest changes, run docker compose down, then docker compose up --build -d.
+
+## Deploy to DigitalOcean Droplet (ASP.NET + MSSQL)
+
+This repository includes:
+- .github/workflows/deploy-do-droplet.yml
+- NemeBook/Mssql/Dockerfile
+- NemeBook/deploy/docker-compose.droplet.yml
+
+### 1. Create the Droplet
+
+1. Create a new Ubuntu Droplet (the $5/month plan is enough for a starter setup).
+2. Add your SSH public key during Droplet creation.
+3. Enable Docker during provisioning (DigitalOcean docker cloud-init recipe style). Example:
+
+```yaml
+#cloud-config
+package_update: true
+packages:
+	- docker.io
+	- docker-compose-plugin
+runcmd:
+	- systemctl enable docker
+	- systemctl start docker
+	- mkdir -p /home/root/nemebook
+```
+
+### 2. Create DOCR
+
+1. In DigitalOcean, create a private Container Registry.
+2. Set DOCR_NAMESPACE in .github/workflows/deploy-do-droplet.yml to your registry namespace.
+
+### 3. Add GitHub Secrets
+
+Add these repository secrets:
+- DOCREDS (DigitalOcean registry token/password)
+- DOCREDS_USER (registry username)
+- DROP_HOST (Droplet public IP)
+- DROP_SSH_KEY (private key matching the Droplet SSH key)
+
+### 4. Prepare Droplet Runtime Env File
+
+Create /home/root/nemebook/.env on the Droplet:
+
+```bash
+MSSQL_SA_PASSWORD=UseARealStrongPasswordHere
+WEB_HOST_PORT=8081
+ASPNETCORE_ENVIRONMENT=Production
+APP_BASE_URL=http://<droplet-ip>:8081
+```
+
+### 5. Deployment Flow
+
+On every push to main, GitHub Actions will:
+- Build and push nemebook-web and nemebook-mssql images to DOCR.
+- Copy NemeBook/deploy/docker-compose.droplet.yml to /home/root/nemebook.
+- SSH into the Droplet.
+- Login to DOCR, pull latest images, and restart services via Docker Compose.
+
+### 6. Verify on Droplet
+
+```bash
+cd /home/root/nemebook
+docker compose -f docker-compose.droplet.yml ps
+docker compose -f docker-compose.droplet.yml logs web --tail 100
+```

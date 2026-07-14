@@ -1,0 +1,43 @@
+services:
+  mssql:
+    image: ${MSSQL_IMAGE:-registry.digitalocean.com/myapp/nemebook-mssql:latest}
+    container_name: nemebook-mssql
+    env_file:
+      - .env
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Your_strong_password_123!}
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$${MSSQL_SA_PASSWORD}" -C -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+
+  web:
+    image: ${WEB_IMAGE:-registry.digitalocean.com/myapp/nemebook-web:latest}
+    container_name: nemebook-web
+    depends_on:
+      mssql:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ConnectionStrings__DefaultConnection: Server=mssql,1433;Database=NemeBook;User Id=sa;Password=${MSSQL_SA_PASSWORD:-Your_strong_password_123!};TrustServerCertificate=True;Encrypt=False;
+      RegistrationEmail__BaseUrl: ${APP_BASE_URL:-http://localhost:${WEB_HOST_PORT:-8081}}
+    ports:
+      - "${WEB_HOST_PORT:-8081}:8080"
+    restart: unless-stopped
+
+volumes:
+  mssql-data:
