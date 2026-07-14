@@ -446,7 +446,8 @@
                             data-student-id="@student.Id"
                             data-student-name="@student.FullName"
                             data-student-initials="@student.Initials"
-                            data-student-class="@Model.ClassName">
+                            data-student-class="@Model.ClassName"
+                            data-student-record-count="@student.RecordCount">
                         <span class="nb-student-dot" aria-hidden="true">@student.Initials</span>
                         <strong>@student.FullName</strong>
                         <i class="bi bi-chevron-right" aria-hidden="true"></i>
@@ -458,26 +459,26 @@
 
     <aside class="nb-student-panel" aria-label="Избран ученик">
         <div class="nb-panel-head">
-            <span class="nb-panel-avatar" id="selectedStudentInitials" aria-hidden="true">@Model.SelectedStudent.Initials</span>
+            <span class="nb-panel-avatar" id="selectedStudentInitials" aria-hidden="true">?</span>
             <span>
-                <strong id="selectedStudentName">@Model.SelectedStudent.FullName</strong>
-                <span id="selectedStudentClass">Клас @Model.SelectedStudent.ClassName</span>
+                <strong id="selectedStudentName">Изберете ученик</strong>
+                <span id="selectedStudentClass">Клас @Model.ClassName</span>
             </span>
         </div>
 
         <div class="nb-panel-section">
             <span class="nb-panel-label">Записи</span>
-            <span class="nb-record-count">@Model.SelectedStudent.RecordCount</span>
+            <span class="nb-record-count" id="selectedStudentRecordCount">0</span>
         </div>
 
         <div class="nb-panel-section">
             <span class="nb-panel-label">Действия</span>
             <div class="nb-actions">
-                @if (canCreateRecords && Model.SelectedStudent.Id.HasValue)
+                @if (canCreateRecords && Model.Students.Count > 0)
                 {
-                    <button class="nb-action-button is-primary" type="button" data-record-open="grade">+ Оценка</button>
-                    <button class="nb-action-button is-success" type="button" data-record-open="feedback">+ Забележка / отзив</button>
-                    <button class="nb-action-button is-warning" type="button" data-record-open="absence">Отсъствие / закъснение</button>
+                    <button class="nb-action-button is-primary" type="button" data-record-open="grade" disabled>+ Оценка</button>
+                    <button class="nb-action-button is-success" type="button" data-record-open="feedback" disabled>+ Забележка / отзив</button>
+                    <button class="nb-action-button is-warning" type="button" data-record-open="absence" disabled>Отсъствие / закъснение</button>
                 }
                 else
                 {
@@ -497,7 +498,7 @@
             <header class="nb-record-modal-header">
                 <div>
                     <h2 id="teacher-record-title">Нов запис</h2>
-                    <p><span data-record-student-name>@Model.SelectedStudent.FullName</span> · <span data-record-student-class>Клас @Model.SelectedStudent.ClassName</span></p>
+                    <p><span data-record-student-name>Изберете ученик</span> · <span data-record-student-class>Клас @Model.ClassName</span></p>
                 </div>
                 <button class="nb-record-modal-close" type="button" data-record-close aria-label="Затвори">
                     <i class="bi bi-x-lg" aria-hidden="true"></i>
@@ -515,12 +516,13 @@
                 <div class="nb-record-modal-body">
                     <form class="nb-record-form" method="post" asp-controller="Teacher" asp-action="AddGrade" data-record-form="grade">
                         @Html.AntiForgeryToken()
-                        <input class="nb-record-student-id" type="hidden" name="StudentId" value="@Model.SelectedStudent.Id" />
+                        <input type="hidden" name="ClassId" value="@Model.ClassId" />
+                        <input class="nb-record-student-id" type="hidden" name="StudentId" value="" />
 
                         <div class="nb-record-grid">
                             <div class="nb-record-field">
                                 <label for="gradeValue">Оценка</label>
-                                <input id="gradeValue" name="Value" type="number" min="2" max="6" step="0.01" value="6" required />
+                                <input id="gradeValue" name="Value" type="number" min="2" max="6" step="0.25" value="6" required />
                             </div>
                             <div class="nb-record-field">
                                 <label for="gradeType">Тип</label>
@@ -542,7 +544,8 @@
 
                     <form class="nb-record-form" method="post" asp-controller="Teacher" asp-action="AddFeedback" data-record-form="feedback" hidden>
                         @Html.AntiForgeryToken()
-                        <input class="nb-record-student-id" type="hidden" name="StudentId" value="@Model.SelectedStudent.Id" />
+                        <input type="hidden" name="ClassId" value="@Model.ClassId" />
+                        <input class="nb-record-student-id" type="hidden" name="StudentId" value="" />
 
                         <div class="nb-record-grid">
                             <div class="nb-record-field">
@@ -569,7 +572,8 @@
 
                     <form class="nb-record-form" method="post" asp-controller="Teacher" asp-action="AddAbsence" data-record-form="absence" hidden>
                         @Html.AntiForgeryToken()
-                        <input class="nb-record-student-id" type="hidden" name="StudentId" value="@Model.SelectedStudent.Id" />
+                        <input type="hidden" name="ClassId" value="@Model.ClassId" />
+                        <input class="nb-record-student-id" type="hidden" name="StudentId" value="" />
 
                         <div class="nb-record-grid">
                             <div class="nb-record-field">
@@ -643,15 +647,17 @@ const sideButtons = document.querySelectorAll("[data-record-open]");
 const selectedName = document.getElementById("selectedStudentName");
 const selectedClass = document.getElementById("selectedStudentClass");
 const selectedInitials = document.getElementById("selectedStudentInitials");
+const selectedRecordCount = document.getElementById("selectedStudentRecordCount");
 const modalStudentName = document.querySelector("[data-record-student-name]");
 const modalStudentClass = document.querySelector("[data-record-student-class]");
-let selectedStudent = rows.find((row) => row.classList.contains("is-selected")) || rows[0] || null;
+let selectedStudent = null;
 
 const getStudent = (row) => row ? {
     id: row.dataset.studentId || "",
     name: row.dataset.studentName || "0",
     initials: row.dataset.studentInitials || "0",
-    className: row.dataset.studentClass || "0"
+    className: row.dataset.studentClass || "0",
+    recordCount: row.dataset.studentRecordCount || "0"
 } : null;
 
 const setSelectedStudent = (row) => {
@@ -672,6 +678,9 @@ const setSelectedStudent = (row) => {
     if (selectedInitials) {
         selectedInitials.textContent = student.initials;
     }
+    if (selectedRecordCount) {
+        selectedRecordCount.textContent = student.recordCount;
+    }
 
     hiddenStudentInputs.forEach((input) => {
         input.value = student.id;
@@ -683,6 +692,10 @@ const setSelectedStudent = (row) => {
     if (modalStudentClass) {
         modalStudentClass.textContent = `Клас ${student.className}`;
     }
+
+    sideButtons.forEach((button) => {
+        button.disabled = false;
+    });
 
     return student;
 };
@@ -716,12 +729,9 @@ const closeModal = () => {
     selectedStudent?.focus();
 };
 
-setSelectedStudent(selectedStudent);
-
 rows.forEach((row) => {
     row.addEventListener("click", () => {
         setSelectedStudent(row);
-        openModal("grade");
     });
 });
 

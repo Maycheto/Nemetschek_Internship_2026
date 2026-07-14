@@ -45,7 +45,7 @@
 
     function renderNotifications() {
         if (!notifications.length) {
-            notificationsContainer.innerHTML = '<li><span class="dropdown-item-text text-muted small">Няма известия</span></li>';
+            notificationsContainer.innerHTML = '<li><span class="dropdown-item-text text-muted small">Няма нови известия</span></li>';
             updateBadge();
             return;
         }
@@ -87,8 +87,8 @@
 
     async function loadNotifications() {
         try {
-            const recent = await fetchJson("/notifications/recent?take=20", { credentials: "same-origin" });
-            notifications = Array.isArray(recent) ? recent : [];
+            const unread = await fetchJson("/notifications/unread?take=20", { credentials: "same-origin" });
+            notifications = Array.isArray(unread) ? unread : [];
             renderNotifications();
         } catch {
             // ignore client-side fetch errors
@@ -105,15 +105,7 @@
                     : undefined
             });
 
-            notifications = notifications.map(notification => {
-                if (notification.id === notificationId) {
-                    return { ...notification, isRead: true };
-                }
-
-                return notification;
-            });
-
-            renderNotifications();
+            await loadNotifications();
         } catch {
             // ignore client-side fetch errors
         }
@@ -129,8 +121,7 @@
                     : undefined
             });
 
-            notifications = notifications.map(notification => ({ ...notification, isRead: true }));
-            renderNotifications();
+            await loadNotifications();
         } catch {
             // ignore client-side fetch errors
         }

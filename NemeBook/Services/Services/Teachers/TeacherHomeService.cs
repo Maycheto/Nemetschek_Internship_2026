@@ -34,7 +34,11 @@ public class TeacherHomeService : ITeacherHomeService
         this.feedbackRepository = feedbackRepository;
     }
 
-    public async Task<TeacherHomeViewModel?> GetHomeAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<TeacherHomeViewModel?> GetHomeAsync(
+        Guid userId,
+        Guid? classId = null,
+        bool selectDefaultClass = true,
+        CancellationToken cancellationToken = default)
     {
         if (userId == Guid.Empty)
         {
@@ -57,16 +61,23 @@ public class TeacherHomeService : ITeacherHomeService
             .Where(classSubject => classSubject.TeacherId == teacher.Id)
             .ToList();
 
-        var selectedClass = allClasses
-            .Where(schoolClass => schoolClass.MainTeacherId == teacher.Id)
+        var accessibleClasses = allClasses
+            .Where(schoolClass =>
+                schoolClass.MainTeacherId == teacher.Id ||
+                assignedClassSubjects.Any(classSubject => classSubject.ClassId == schoolClass.Id))
             .OrderBy(schoolClass => schoolClass.GradeNumber)
             .ThenBy(schoolClass => schoolClass.Letter)
-            .FirstOrDefault()
-            ?? allClasses
-                .Where(schoolClass => assignedClassSubjects.Any(classSubject => classSubject.ClassId == schoolClass.Id))
-                .OrderBy(schoolClass => schoolClass.GradeNumber)
-                .ThenBy(schoolClass => schoolClass.Letter)
-                .FirstOrDefault();
+            .ToList();
+
+        var selectedClass = classId.HasValue
+            ? accessibleClasses.FirstOrDefault(schoolClass => schoolClass.Id == classId.Value)
+            : selectDefaultClass
+                ? accessibleClasses
+                    .OrderByDescending(schoolClass => schoolClass.MainTeacherId == teacher.Id)
+                    .ThenBy(schoolClass => schoolClass.GradeNumber)
+                    .ThenBy(schoolClass => schoolClass.Letter)
+                    .FirstOrDefault()
+                : null;
         var selectedClassSubject = selectedClass is null
             ? null
             : assignedClassSubjects
@@ -76,11 +87,16 @@ public class TeacherHomeService : ITeacherHomeService
             .OrderBy(student => student.User.FirstName)
             .ThenBy(student => student.User.LastName)
             .ToList() ?? new List<Student>();
-        var selectedStudent = students.FirstOrDefault();
         var className = selectedClass is null ? "0" : FormatClassName(selectedClass);
-        var selectedStudentRecordCount = selectedStudent is null
-            ? 0
-            : await GetRecordCountAsync(selectedStudent.Id, assignedClassSubjects, cancellationToken);
+        var selectedClassSubjectIds = selectedClass is null
+            ? new HashSet<Guid>()
+            : assignedClassSubjects
+                .Where(classSubject => classSubject.ClassId == selectedClass.Id)
+                .Select(classSubject => classSubject.Id)
+                .ToHashSet();
+        var recordCountsByStudentId = selectedClassSubjectIds.Count == 0
+            ? new Dictionary<Guid, int>()
+            : await GetRecordCountsAsync(students, selectedClassSubjectIds, cancellationToken);
 
         return new TeacherHomeViewModel
         {
@@ -91,8 +107,9 @@ public class TeacherHomeService : ITeacherHomeService
             SubjectId = selectedClassSubject?.SubjectId,
             ClassName = className,
             StudentCount = students.Count,
-            Students = BuildStudents(students, selectedStudent?.Id),
-            SelectedStudent = BuildSelectedStudent(selectedStudent, className, selectedStudentRecordCount)
+            TeachingClasses = BuildTeachingClasses(accessibleClasses, assignedClassSubjects, teacher.Id),
+            Students = BuildStudents(students, recordCountsByStudentId),
+            SelectedStudent = new TeacherSelectedStudentViewModel()
         };
     }
 
@@ -105,9 +122,38 @@ public class TeacherHomeService : ITeacherHomeService
         };
     }
 
+    private static IReadOnlyList<TeacherClassListItem> BuildTeachingClasses(
+        IReadOnlyList<Class> classes,
+        IReadOnlyCollection<ClassSubject> assignedClassSubjects,
+        Guid teacherId)
+    {
+        return classes
+            .Select(schoolClass =>
+            {
+                var subjectNames = assignedClassSubjects
+                    .Where(classSubject => classSubject.ClassId == schoolClass.Id)
+                    .Select(classSubject => classSubject.Subject.Name)
+                    .Distinct()
+                    .OrderBy(subjectName => subjectName)
+                    .ToList();
+
+                return new TeacherClassListItem
+                {
+                    Id = schoolClass.Id,
+                    Name = FormatClassName(schoolClass),
+                    SubjectNames = subjectNames.Count == 0
+                        ? "Класен ръководител"
+                        : string.Join(", ", subjectNames),
+                    StudentCount = schoolClass.Students.Count,
+                    IsMainClass = schoolClass.MainTeacherId == teacherId
+                };
+            })
+            .ToList();
+    }
+
     private static IReadOnlyList<TeacherStudentListItem> BuildStudents(
         IReadOnlyList<Student> students,
-        Guid? selectedStudentId)
+        IReadOnlyDictionary<Guid, int> recordCountsByStudentId)
     {
         return students
             .Select(student => new TeacherStudentListItem
@@ -115,50 +161,34 @@ public class TeacherHomeService : ITeacherHomeService
                 Id = student.Id,
                 FullName = FormatUserName(student.User),
                 Initials = FormatInitials(student.User.FirstName, student.User.LastName),
-                IsSelected = selectedStudentId.HasValue && student.Id == selectedStudentId.Value
+                RecordCount = recordCountsByStudentId.GetValueOrDefault(student.Id),
+                IsSelected = false
             })
             .ToList();
     }
 
-    private async Task<int> GetRecordCountAsync(
-        Guid studentId,
-        IReadOnlyCollection<ClassSubject> assignedClassSubjects,
+    private async Task<Dictionary<Guid, int>> GetRecordCountsAsync(
+        IReadOnlyCollection<Student> students,
+        IReadOnlyCollection<Guid> selectedClassSubjectIds,
         CancellationToken cancellationToken)
     {
-        var assignedClassSubjectIds = assignedClassSubjects
-            .Select(classSubject => classSubject.Id)
+        var studentIds = students
+            .Select(student => student.Id)
             .ToHashSet();
 
         var grades = await gradeRepository.GetAllAsync(cancellationToken);
         var absences = await absenceRepository.GetAllAsync(cancellationToken);
         var feedbacks = await feedbackRepository.GetAllAsync(cancellationToken);
 
-        return grades.Count(grade =>
-                grade.StudentId == studentId && assignedClassSubjectIds.Contains(grade.ClassSubjectId))
-            + absences.Count(absence =>
-                absence.StudentId == studentId && assignedClassSubjectIds.Contains(absence.ClassSubjectId))
-            + feedbacks.Count(feedback =>
-                feedback.StudentId == studentId && assignedClassSubjectIds.Contains(feedback.ClassSubjectId));
-    }
-
-    private static TeacherSelectedStudentViewModel BuildSelectedStudent(
-        Student? student,
-        string className,
-        int recordCount)
-    {
-        if (student is null)
-        {
-            return new TeacherSelectedStudentViewModel();
-        }
-
-        return new TeacherSelectedStudentViewModel
-        {
-            Id = student.Id,
-            FullName = FormatUserName(student.User),
-            Initials = FormatInitials(student.User.FirstName, student.User.LastName),
-            ClassName = className,
-            RecordCount = recordCount
-        };
+        return studentIds.ToDictionary(
+            studentId => studentId,
+            studentId =>
+                grades.Count(grade =>
+                    grade.StudentId == studentId && selectedClassSubjectIds.Contains(grade.ClassSubjectId))
+                + absences.Count(absence =>
+                    absence.StudentId == studentId && selectedClassSubjectIds.Contains(absence.ClassSubjectId))
+                + feedbacks.Count(feedback =>
+                    feedback.StudentId == studentId && selectedClassSubjectIds.Contains(feedback.ClassSubjectId)));
     }
 
     private static string FormatClassName(Class schoolClass)

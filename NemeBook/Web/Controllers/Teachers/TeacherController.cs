@@ -3,6 +3,7 @@ using Entities.Enums;
 using Entities.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Services.Interfaces;
 using Services.Interfaces.Teachers;
 using Services.Repositories;
 
@@ -15,6 +16,7 @@ public class TeacherController : Controller
     private readonly IClassSubjectRepository classSubjectRepository;
     private readonly IFeedbackRepository feedbackRepository;
     private readonly IGradeRepository gradeRepository;
+    private readonly INotificationService notificationService;
     private readonly IStudentRepository studentRepository;
     private readonly ITeacherHomeService teacherHomeService;
     private readonly ITeacherRepository teacherRepository;
@@ -26,7 +28,8 @@ public class TeacherController : Controller
         IClassSubjectRepository classSubjectRepository,
         IGradeRepository gradeRepository,
         IAbsenceRepository absenceRepository,
-        IFeedbackRepository feedbackRepository)
+        IFeedbackRepository feedbackRepository,
+        INotificationService notificationService)
     {
         this.teacherHomeService = teacherHomeService;
         this.teacherRepository = teacherRepository;
@@ -35,6 +38,7 @@ public class TeacherController : Controller
         this.gradeRepository = gradeRepository;
         this.absenceRepository = absenceRepository;
         this.feedbackRepository = feedbackRepository;
+        this.notificationService = notificationService;
     }
 
     [HttpGet]
@@ -50,10 +54,23 @@ public class TeacherController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> MyClass(CancellationToken cancellationToken)
+    public async Task<IActionResult> MyClass(Guid? classId, CancellationToken cancellationToken)
     {
-        var viewModel = await GetTeacherHomeViewModelAsync(cancellationToken);
+        var viewModel = await GetTeacherHomeViewModelAsync(
+            cancellationToken,
+            classId,
+            selectDefaultClass: classId.HasValue);
         if (viewModel is null)
+        {
+            return RedirectToAction("AccessDenied", "Account");
+        }
+
+        if (!classId.HasValue)
+        {
+            return View("MyClasses", viewModel);
+        }
+
+        if (viewModel.ClassId != classId)
         {
             return RedirectToAction("AccessDenied", "Account");
         }
@@ -97,7 +114,7 @@ public class TeacherController : Controller
     {
         if (model.Value < 2 || model.Value > 6 || !Enum.IsDefined(model.Type))
         {
-            return RedirectToAction(nameof(MyClass));
+            return RedirectToAction(nameof(MyClass), new { classId = model.ClassId });
         }
 
         var access = await GetTeacherClassSubjectForStudentAsync(model.StudentId, cancellationToken);
@@ -118,8 +135,14 @@ public class TeacherController : Controller
         };
 
         await gradeRepository.CreateAsync(grade, cancellationToken);
+        await notificationService.CreateNotificationAsync(
+            access.Student.UserId,
+            NotificationType.Grade,
+            $"Нова оценка {grade.Value:0.##} по {access.ClassSubject.Subject.Name}.",
+            gradeId: grade.Id,
+            cancellationToken: cancellationToken);
 
-        return RedirectToAction(nameof(MyClass));
+        return RedirectToAction(nameof(MyClass), new { classId = access.Student.ClassId });
     }
 
     [HttpPost]
@@ -130,7 +153,7 @@ public class TeacherController : Controller
     {
         if (model.LessonNumber < 1 || !Enum.IsDefined(model.Type) || !Enum.IsDefined(model.Status))
         {
-            return RedirectToAction(nameof(MyClass));
+            return RedirectToAction(nameof(MyClass), new { classId = model.ClassId });
         }
 
         var access = await GetTeacherClassSubjectForStudentAsync(model.StudentId, cancellationToken);
@@ -154,8 +177,14 @@ public class TeacherController : Controller
         };
 
         await absenceRepository.CreateAsync(absence, cancellationToken);
+        await notificationService.CreateNotificationAsync(
+            access.Student.UserId,
+            NotificationType.Absence,
+            $"Ново отсъствие по {access.ClassSubject.Subject.Name}.",
+            absenceId: absence.Id,
+            cancellationToken: cancellationToken);
 
-        return RedirectToAction(nameof(MyClass));
+        return RedirectToAction(nameof(MyClass), new { classId = access.Student.ClassId });
     }
 
     [HttpPost]
@@ -166,7 +195,7 @@ public class TeacherController : Controller
     {
         if (!Enum.IsDefined(model.Type) || string.IsNullOrWhiteSpace(model.Description))
         {
-            return RedirectToAction(nameof(MyClass));
+            return RedirectToAction(nameof(MyClass), new { classId = model.ClassId });
         }
 
         var access = await GetTeacherClassSubjectForStudentAsync(model.StudentId, cancellationToken);
@@ -187,12 +216,20 @@ public class TeacherController : Controller
         };
 
         await feedbackRepository.CreateAsync(feedback, cancellationToken);
+        await notificationService.CreateNotificationAsync(
+            access.Student.UserId,
+            NotificationType.Feedback,
+            $"Нов отзив по {access.ClassSubject.Subject.Name}.",
+            feedbackId: feedback.Id,
+            cancellationToken: cancellationToken);
 
-        return RedirectToAction(nameof(MyClass));
+        return RedirectToAction(nameof(MyClass), new { classId = access.Student.ClassId });
     }
 
     private async Task<Entities.ViewModels.Teachers.TeacherHomeViewModel?> GetTeacherHomeViewModelAsync(
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? classId = null,
+        bool selectDefaultClass = true)
     {
         var userId = GetCurrentUserId();
         if (!userId.HasValue)
@@ -200,7 +237,7 @@ public class TeacherController : Controller
             return null;
         }
 
-        return await teacherHomeService.GetHomeAsync(userId.Value, cancellationToken);
+        return await teacherHomeService.GetHomeAsync(userId.Value, classId, selectDefaultClass, cancellationToken);
     }
 
     private async Task<TeacherStudentRecordAccess?> GetTeacherClassSubjectForStudentAsync(
@@ -259,6 +296,8 @@ public class TeacherController : Controller
 
 public class TeacherGradeRecordInputModel
 {
+    public Guid? ClassId { get; set; }
+
     public Guid StudentId { get; set; }
 
     public decimal Value { get; set; }
@@ -270,6 +309,8 @@ public class TeacherGradeRecordInputModel
 
 public class TeacherAbsenceRecordInputModel
 {
+    public Guid? ClassId { get; set; }
+
     public Guid StudentId { get; set; }
 
     public DateOnly Date { get; set; }
@@ -287,6 +328,8 @@ public class TeacherAbsenceRecordInputModel
 
 public class TeacherFeedbackRecordInputModel
 {
+    public Guid? ClassId { get; set; }
+
     public Guid StudentId { get; set; }
 
     public DateOnly Date { get; set; }

@@ -16,9 +16,24 @@ public class TeacherHomeViewModel
 
     public int StudentCount { get; set; }
 
+    public IReadOnlyList<TeacherClassListItem> TeachingClasses { get; set; } = Array.Empty<TeacherClassListItem>();
+
     public IReadOnlyList<TeacherStudentListItem> Students { get; set; } = Array.Empty<TeacherStudentListItem>();
 
     public TeacherSelectedStudentViewModel SelectedStudent { get; set; } = new();
+}
+
+public class TeacherClassListItem
+{
+    public Guid Id { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+
+    public string SubjectNames { get; set; } = string.Empty;
+
+    public int StudentCount { get; set; }
+
+    public bool IsMainClass { get; set; }
 }
 
 public class TeacherStudentListItem
@@ -28,6 +43,8 @@ public class TeacherStudentListItem
     public string FullName { get; set; } = string.Empty;
 
     public string Initials { get; set; } = string.Empty;
+
+    public int RecordCount { get; set; }
 
     public bool IsSelected { get; set; }
 }

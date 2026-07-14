@@ -431,9 +431,10 @@
                             @foreach (var grade in subject.Grades)
                             {
                                 gradeModalIndex++;
-                                var modalId = $"grade-popup-{gradeModalIndex}";
-                                var gradeTone = grade.Value >= 5 ? "is-good" : grade.Value >= 4 ? "is-mid" : "is-low";
-                                var gradeValue = grade.Value.ToString("0.##");
+                                var modalId = $"grade-popup-{grade.Id:N}";
+                                var displayedGrade = GetDisplayedGrade(grade.Value);
+                                var gradeTone = displayedGrade >= 5 ? "is-good" : displayedGrade >= 4 ? "is-mid" : "is-low";
+                                var gradeValue = displayedGrade.ToString();
 
                                 <button class="nb-grade-chip @gradeTone"
                                         type="button"
@@ -528,8 +529,9 @@ absenceModalIndex = 0;
 foreach (var grade in subject.Grades)
 {
 gradeModalIndex++;
-var modalId = $"grade-popup-{gradeModalIndex}";
-var gradeTone = grade.Value >= 5 ? "is-good" : grade.Value >= 4 ? "is-mid" : "is-low";
+var modalId = $"grade-popup-{grade.Id:N}";
+var displayedGrade = GetDisplayedGrade(grade.Value);
+var gradeTone = displayedGrade >= 5 ? "is-good" : displayedGrade >= 4 ? "is-mid" : "is-low";
 
 <div class="nb-popup-backdrop" data-nb-popup="@modalId" hidden>
 <section class="nb-popup" role="dialog" aria-modal="true" aria-labelledby="@($"{modalId}-title")" tabindex="-1">
@@ -543,7 +545,7 @@ var gradeTone = grade.Value >= 5 ? "is-good" : grade.Value >= 4 ? "is-mid" : "is
         </button>
     </header>
     <div class="nb-popup-body">
-        <span class="nb-popup-grade @gradeTone">@grade.Value.ToString("0.##")</span>
+        <span class="nb-popup-grade @gradeTone">@grade.Value.ToString("0.00")</span>
         <div class="nb-grade-detail-grid">
             <div class="nb-grade-detail-row">
                 <span>Предмет</span>
@@ -685,6 +687,11 @@ popup.addEventListener("click", (event) => {
 });
 });
 
+const requestedGradeId = new URLSearchParams(window.location.search).get("gradeId");
+if (requestedGradeId) {
+    openPopup(`grade-popup-${requestedGradeId.replaceAll("-", "")}`, null);
+}
+
 document.addEventListener("keydown", (event) => {
 if (event.key === "Escape") {
     closePopup(document.querySelector("[data-nb-popup]:not([hidden])"));
@@ -692,4 +699,16 @@ if (event.key === "Escape") {
 });
 })();
 </script>
+}
+
+@functions {
+    private static int GetDisplayedGrade(decimal value)
+    {
+        if (value < 3)
+        {
+            return 2;
+        }
+
+        return Math.Clamp((int)Math.Floor(value + 0.5m), 3, 6);
+    }
 }

@@ -7,6 +7,7 @@ namespace Web.Controllers;
 
 [Authorize]
 [Route("notifications")]
+[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public class NotificationController : Controller
 {
     private readonly INotificationService _notificationService;
@@ -31,6 +32,21 @@ public class NotificationController : Controller
         return Json(notifications.Take(normalizedTake));
     }
 
+    [HttpGet("unread")]
+    public async Task<IActionResult> GetUnread([FromQuery] int take = 50, CancellationToken cancellationToken = default)
+    {
+        var userId = GetCurrentUserId();
+        if (!userId.HasValue)
+        {
+            return Unauthorized();
+        }
+
+        var normalizedTake = Math.Clamp(take, 1, 50);
+        var notifications = await _notificationService.GetUnreadNotificationsAsync(userId.Value, cancellationToken);
+
+        return Json(notifications.Take(normalizedTake));
+    }
+
     [HttpGet("unread-count")]
     public async Task<IActionResult> GetUnreadCount(CancellationToken cancellationToken = default)
     {
@@ -45,7 +61,7 @@ public class NotificationController : Controller
     }
 
     [HttpPost("{id:guid}/read")]
-    [ValidateAntiForgeryToken]
+    [IgnoreAntiforgeryToken]
     public async Task<IActionResult> MarkAsRead(Guid id, CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
@@ -65,7 +81,7 @@ public class NotificationController : Controller
     }
 
     [HttpPost("read-all")]
-    [ValidateAntiForgeryToken]
+    [IgnoreAntiforgeryToken]
     public async Task<IActionResult> MarkAllAsRead(CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
