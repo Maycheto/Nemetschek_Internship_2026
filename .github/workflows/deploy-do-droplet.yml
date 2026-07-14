@@ -86,13 +86,9 @@ jobs:
             exit 1
           fi
 
-          {
-            echo "private_key<<EOF"
-            cat "$KEY_FILE"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          echo "key_path=$KEY_FILE" >> "$GITHUB_OUTPUT"
 
-          echo "SSH private key parsed successfully."
+          echo "SSH private key parsed successfully at $KEY_FILE."
 
       - name: Runner and Docker diagnostics
         run: |
@@ -136,7 +132,7 @@ jobs:
         with:
           host: ${{ secrets.DROP_HOST }}
           username: root
-          key: ${{ steps.ssh_key.outputs.private_key }}
+          key_path: ${{ steps.ssh_key.outputs.key_path }}
           source: NemeBook/deploy/docker-compose.droplet.yml
           target: /home/root/nemebook
           strip_components: 2
@@ -146,7 +142,7 @@ jobs:
         with:
           host: ${{ secrets.DROP_HOST }}
           username: root
-          key: ${{ steps.ssh_key.outputs.private_key }}
+          key_path: ${{ steps.ssh_key.outputs.key_path }}
           script: |
             set -euxo pipefail
             mkdir -p "${{ env.REMOTE_DEPLOY_DIR }}"
@@ -174,7 +170,7 @@ jobs:
         with:
           host: ${{ secrets.DROP_HOST }}
           username: root
-          key: ${{ steps.ssh_key.outputs.private_key }}
+          key_path: ${{ steps.ssh_key.outputs.key_path }}
           script: |
             set +e
             cd "${{ env.REMOTE_DEPLOY_DIR }}" || true
